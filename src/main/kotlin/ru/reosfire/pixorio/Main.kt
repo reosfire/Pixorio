@@ -2,8 +2,15 @@ package ru.reosfire.pixorio
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.onClick
+import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Text
+import androidx.compose.material.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -16,17 +23,44 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.round
+import androidx.compose.ui.unit.toOffset
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.zIndex
 import org.jetbrains.skia.Bitmap
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 
 fun Offset.toInt() = IntOffset(x.toInt(), y.toInt())
+val Offset.norm: Float
+    get() = sqrt(x * x + y * y)
+fun Offset.normalized() = Offset(x / norm, y / norm)
+fun IntOffset.distance(other: IntOffset): Float {
+    val dx = x - other.x
+    val dy = y - other.y
+    return sqrt((dx * dx + dy * dy).toFloat())
+}
+
+// TODO rewrite to normal algorithm
+fun lineBetween(start: IntOffset, end: IntOffset): List<IntOffset> {
+    if (start == end) return listOf(start)
+    val n = 1000
+    val step = (end - start).toOffset().normalized() * (start.distance(end) / n)
+    var currentPosition = start.toOffset()
+
+    val result = mutableListOf<IntOffset>()
+    repeat(n) {
+        currentPosition += step
+
+        result.add(currentPosition.round())
+    }
+    return result
+}
 
 @Composable
 @Preview
@@ -39,9 +73,7 @@ fun App() {
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun PixelsPainter() {
-    var updateTrigger by remember { mutableStateOf(true) }
-
-    val size = remember { IntSize(32, 32) }
+    val size = remember { IntSize(128, 128) }
 
     val pixels = remember {
         ByteArray(size.height * size.width * 4) {
@@ -70,8 +102,11 @@ fun PixelsPainter() {
     var scalingFactor by remember { mutableStateOf(10f) }
     var offset by remember { mutableStateOf(Offset(0f, 0f)) }
     var pressed by remember { mutableStateOf(false) }
+    var lastPress by remember { mutableStateOf(IntOffset(0, 0)) }
 
     var currentColor by remember { mutableStateOf(Color.White) }
+
+    var framesRendered by remember { mutableStateOf(0) }
 
     Row(Modifier.fillMaxSize()) {
         ColorPicker(
@@ -96,6 +131,7 @@ fun PixelsPainter() {
                     scalingFactor += dScale
 
                     offset -= Offset(dSize.x * relativeScrollPointCoords.x, dSize.y * relativeScrollPointCoords.y)
+                    framesRendered++
                 }.onPointerEvent(PointerEventType.Press) {
                     if (it.button == PointerButton.Tertiary) {
                         val click = ((it.changes.first().position - offset) / scalingFactor).toInt()
@@ -116,23 +152,32 @@ fun PixelsPainter() {
                         pixels[baseIndex + 2] = (currentColor.red * 255).toInt().toByte()
                         bitmap.installPixels(pixels)
                         pressed = true
+                        lastPress = click
+                        framesRendered++
                     }
                 }.onPointerEvent(PointerEventType.Move) {
                     if (pressed) {
                         val click = ((it.changes.first().position - offset) / scalingFactor).toInt()
                         if (click.x < 0 || click.y < 0 || click.x >= size.width || click.y >= size.height) return@onPointerEvent
-                        val baseIndex = (click.x + click.y * size.width) * 4
-                        pixels[baseIndex] = (currentColor.blue * 255).toInt().toByte()
-                        pixels[baseIndex + 1] = (currentColor.green * 255).toInt().toByte()
-                        pixels[baseIndex + 2] = (currentColor.red * 255).toInt().toByte()
+
+                        for (point in lineBetween(click, lastPress)) {
+                            val baseIndex = (point.x + point.y * size.width) * 4
+                            pixels[baseIndex] = (currentColor.blue * 255).toInt().toByte()
+                            pixels[baseIndex + 1] = (currentColor.green * 255).toInt().toByte()
+                            pixels[baseIndex + 2] = (currentColor.red * 255).toInt().toByte()
+                        }
                         bitmap.installPixels(pixels)
+
+                        lastPress = click
+                        framesRendered++
                     }
                 }.onPointerEvent(PointerEventType.Release) {
                     pressed = false
+                    framesRendered++
                 },
         ) {
             Canvas(Modifier.fillMaxSize()) {
-                updateTrigger = !updateTrigger //TODO: this is the crappest solution possible. Because it triggers redraw every frame, which could be bypassed most of the time
+                framesRendered // TODO this is still very wierd solution
                 drawImage(
                     composeBitmap,
                     dstSize = IntSize((bitmap.width * scalingFactor).roundToInt(), (bitmap.height * scalingFactor).roundToInt()),

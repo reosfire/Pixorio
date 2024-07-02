@@ -6,9 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.Button
-import androidx.compose.material.Checkbox
-import androidx.compose.material.Text
 import androidx.compose.material.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,13 +15,11 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asComposeImageBitmap
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.*
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
@@ -37,40 +32,16 @@ fun ColorPicker(
     onColorChanged: (Color) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val size = IntSize(256, 256)
-    val floatSize = size.toSize()
-
     var hue by remember { mutableFloatStateOf(0f) }
     var saturationValue by remember { mutableStateOf(Offset.Zero) }
 
-    val pixels = remember { ByteArray(size.height * size.width * 4) }
-
-    for (y in 0..<size.height) {
-        for (x in 0..<size.width) {
-            val currentColor = Color.hsv(hue, x / floatSize.width, 1f - (y / floatSize.height))
-
-            val baseIndex = (x + y * size.width) * 4
-            // blue
-            pixels[baseIndex] = (currentColor.blue * 255f).toInt().toByte()
-            // green
-            pixels[baseIndex + 1] = (currentColor.green * 255f).toInt().toByte()
-            // red
-            pixels[baseIndex + 2] = (currentColor.red * 255f).toInt().toByte()
-            // alpha
-            pixels[baseIndex + 3] = (currentColor.alpha * 255f).toInt().toByte()
-        }
-    }
+    val bitmap = colorPickerBitmap(IntSize(256, 256), hue)
 
     var color by remember { mutableStateOf(Color.White) }
 
     fun updateColor(x: Float, y: Float) {
         color = Color.hsv(hue, x.coerceIn(0f, 255f) / 255f, 1 - y.coerceIn(0f, 255f) / 255f)
         onColorChanged(color)
-    }
-
-    val bitmap = Bitmap().apply {
-        allocN32Pixels(size.width, size.height)
-        installPixels(pixels)
     }
 
     var pressed by remember { mutableStateOf(false) }
@@ -120,37 +91,7 @@ private fun HueSelector(
     onHueChanged: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val size = IntSize(20, 360)
-
-    val pixels = remember {
-        val result = ByteArray(size.height * size.width * 4)
-
-        for (y in 0..<360) {
-            val hue = y.toFloat()
-            for (x in 0..<size.width) {
-                val currentColor = Color.hsv(hue, 1f, 1f)
-
-                val baseIndex = (x + y * size.width) * 4
-                // blue
-                result[baseIndex] = (currentColor.blue * 255f).toInt().toByte()
-                // green
-                result[baseIndex + 1] = (currentColor.green * 255f).toInt().toByte()
-                // red
-                result[baseIndex + 2] = (currentColor.red * 255f).toInt().toByte()
-                // alpha
-                result[baseIndex + 3] = (currentColor.alpha * 255f).toInt().toByte()
-            }
-        }
-
-        result
-    }
-
-    val composeBitmap = remember {
-        Bitmap().apply {
-            allocN32Pixels(size.width, size.height)
-            installPixels(pixels)
-        }.asComposeImageBitmap()
-    }
+    val composeBitmap = remember { hueSelectorBitmap(IntSize(20, 360)) }
 
     var pressed by remember { mutableStateOf(false) }
 
@@ -181,6 +122,51 @@ private fun HueSelector(
     ) { _, constraints ->
         layout(constraints.maxWidth, constraints.maxHeight) {}
     }
+}
+
+private fun colorPickerBitmap(size: IntSize, hue: Float): Bitmap {
+    val floatSize = size.toSize()
+
+    val pixels = ByteArray(size.height * size.width * 4)
+
+    for (y in 0..<size.height) {
+        for (x in 0..<size.width) {
+            val currentColor = Color.hsv(hue, x / floatSize.width, 1f - (y / floatSize.height))
+
+            val baseIndex = (x + y * size.width) * 4
+            pixels[baseIndex] = (currentColor.blue * 255).toInt().toByte() // blue
+            pixels[baseIndex + 1] = (currentColor.green * 255).toInt().toByte() // green
+            pixels[baseIndex + 2] = (currentColor.red * 255).toInt().toByte() // red
+            pixels[baseIndex + 3] = (currentColor.alpha * 255).toInt().toByte() // alpha
+        }
+    }
+
+    return Bitmap().apply {
+        allocN32Pixels(size.width, size.height)
+        installPixels(pixels)
+    }
+}
+
+private fun hueSelectorBitmap(size: IntSize): ImageBitmap {
+    val pixels = ByteArray(size.height * size.width * 4)
+
+    for (y in 0..<size.height) {
+        val hue = y.toFloat()
+        for (x in 0..<size.width) {
+            val currentColor = Color.hsv(hue, 1f, 1f)
+
+            val baseIndex = (x + y * size.width) * 4
+            pixels[baseIndex] = (currentColor.blue * 255).toInt().toByte() // blue
+            pixels[baseIndex + 1] = (currentColor.green * 255).toInt().toByte() // green
+            pixels[baseIndex + 2] = (currentColor.red * 255).toInt().toByte() // red
+            pixels[baseIndex + 3] = (currentColor.alpha * 255).toInt().toByte() // alpha
+        }
+    }
+
+    return Bitmap().apply {
+        allocN32Pixels(size.width, size.height)
+        installPixels(pixels)
+    }.asComposeImageBitmap()
 }
 
 private fun Color.toHexString(): String {

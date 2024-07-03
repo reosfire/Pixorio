@@ -11,11 +11,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asComposeImageBitmap
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
@@ -91,33 +90,38 @@ private fun HueSelector(
     onHueChanged: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val composeBitmap = remember { hueSelectorBitmap(IntSize(20, 360)) }
-
     var pressed by remember { mutableStateOf(false) }
 
     fun updateHue(y: Float) {
         onHueChanged(y.coerceIn(0f, 360f))
     }
 
+    val backgroundBrush = remember { hsvBrush() }
+
     Layout(
         modifier = modifier
             .onPointerEvent(PointerEventType.Press) {
-                updateHue(it.changes.first().position.y)
+                updateHue(it.changes.first().position.y / size.height * 360f)
                 pressed = true
             }.onPointerEvent(PointerEventType.Move) {
                 if (pressed) {
-                    updateHue(it.changes.first().position.y)
+                    updateHue(it.changes.first().position.y / size.height * 360f)
                 }
             }.onPointerEvent(PointerEventType.Release) {
                 pressed = false
-            }.drawBehind {
-                drawImage(
-                    image = composeBitmap,
-                    filterQuality = FilterQuality.None,
-                )
+            }.drawWithCache {
+                val barBackgroundColor = Color.Black.copy(alpha = 0.8f)
+                val barColor = Color.hsv(hue, 1f, 1f)
 
-                drawLine(Color.Black.copy(alpha = 0.8f), Offset(0f, hue), Offset(20f, hue), 5f)
-                drawLine(Color.hsv(hue, 1f, 1f), Offset(0f, hue), Offset(20f, hue), 3f)
+                val barLeftEnd = Offset(0f, hue / 360f * size.height)
+                val barRightEnd = Offset(size.width, hue / 360f * size.height)
+
+                onDrawBehind {
+                    drawRect(backgroundBrush)
+
+                    drawLine(barBackgroundColor, barLeftEnd, barRightEnd, 5f)
+                    drawLine(barColor, barLeftEnd, barRightEnd, 3f)
+                }
             }
     ) { _, constraints ->
         layout(constraints.maxWidth, constraints.maxHeight) {}
@@ -147,26 +151,13 @@ private fun colorPickerBitmap(size: IntSize, hue: Float): Bitmap {
     }
 }
 
-private fun hueSelectorBitmap(size: IntSize): ImageBitmap {
-    val pixels = ByteArray(size.height * size.width * 4)
-
-    for (y in 0..<size.height) {
-        val hue = y.toFloat()
-        for (x in 0..<size.width) {
-            val currentColor = Color.hsv(hue, 1f, 1f)
-
-            val baseIndex = (x + y * size.width) * 4
-            pixels[baseIndex] = (currentColor.blue * 255).toInt().toByte() // blue
-            pixels[baseIndex + 1] = (currentColor.green * 255).toInt().toByte() // green
-            pixels[baseIndex + 2] = (currentColor.red * 255).toInt().toByte() // red
-            pixels[baseIndex + 3] = (currentColor.alpha * 255).toInt().toByte() // alpha
-        }
+private fun hsvBrush(colorStopsCount: Int = 36): Brush {
+    val factor = 360f / colorStopsCount
+    val colorStops = ArrayList<Color>(colorStopsCount)
+    for (i in 0..<colorStopsCount) {
+        colorStops.add(Color.hsv(i * factor, 1f, 1f))
     }
-
-    return Bitmap().apply {
-        allocN32Pixels(size.width, size.height)
-        installPixels(pixels)
-    }.asComposeImageBitmap()
+    return Brush.verticalGradient(colorStops)
 }
 
 private fun Color.toHexString(): String {
@@ -179,4 +170,9 @@ private fun Color.toHexString(): String {
 
 private fun Int.toHex(): String {
     return toString(16).padStart(2, '0')
+}
+
+private fun <T> List<T>.requireOneElement(): T {
+    require(size == 1)
+    return this[0]
 }

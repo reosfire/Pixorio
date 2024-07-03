@@ -2,36 +2,28 @@ package ru.reosfire.pixorio
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.onClick
-import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
-import androidx.compose.material.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.round
-import androidx.compose.ui.unit.toOffset
+import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.zIndex
 import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.Canvas
+import ru.reosfire.pixorio.colorpicker.ColorPicker
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -75,6 +67,8 @@ fun App() {
 fun PixelsPainter() {
     val size = remember { IntSize(128, 128) }
 
+    val checkersBitmap = remember { createCheckeredBackground(IntSize(size.width * 2, size.height * 2)).asComposeImageBitmap() }
+
     val pixels = remember {
         ByteArray(size.height * size.width * 4) {
             when {
@@ -113,7 +107,7 @@ fun PixelsPainter() {
             onColorChanged = {
                 currentColor = it
             },
-            modifier = Modifier.align(Alignment.Top).zIndex(2f)
+            modifier = Modifier.width((255 + 4 + 20).dp).height((255 + 10).dp).align(Alignment.Top).zIndex(2f)
         )
 
         Box(
@@ -150,6 +144,7 @@ fun PixelsPainter() {
                         pixels[baseIndex] = (currentColor.blue * 255).toInt().toByte()
                         pixels[baseIndex + 1] = (currentColor.green * 255).toInt().toByte()
                         pixels[baseIndex + 2] = (currentColor.red * 255).toInt().toByte()
+                        pixels[baseIndex + 3] = (currentColor.alpha * 255).toInt().toByte()
                         bitmap.installPixels(pixels)
                         pressed = true
                         lastPress = click
@@ -165,6 +160,7 @@ fun PixelsPainter() {
                             pixels[baseIndex] = (currentColor.blue * 255).toInt().toByte()
                             pixels[baseIndex + 1] = (currentColor.green * 255).toInt().toByte()
                             pixels[baseIndex + 2] = (currentColor.red * 255).toInt().toByte()
+                            pixels[baseIndex + 3] = (currentColor.alpha * 255).toInt().toByte()
                         }
                         bitmap.installPixels(pixels)
 
@@ -178,6 +174,14 @@ fun PixelsPainter() {
         ) {
             Canvas(Modifier.fillMaxSize()) {
                 framesRendered // TODO this is still very wierd solution
+
+                drawImage(
+                    checkersBitmap,
+                    dstSize = IntSize((bitmap.width * scalingFactor).roundToInt(), (bitmap.height * scalingFactor).roundToInt()),
+                    dstOffset = offset.round(),
+                    blendMode = BlendMode.Src,
+                    filterQuality = FilterQuality.None,
+                )
                 drawImage(
                     composeBitmap,
                     dstSize = IntSize((bitmap.width * scalingFactor).roundToInt(), (bitmap.height * scalingFactor).roundToInt()),
@@ -188,6 +192,21 @@ fun PixelsPainter() {
             }
         }
     }
+}
+
+private fun createCheckeredBackground(
+    size: IntSize
+): Bitmap {
+    val canvas = BitmapCanvas(size)
+
+    for (y in 0 until size.height) {
+        for (x in 0 until size.width) {
+            val baseColor = if ((x + y) % 2 == 0) Color.LightGray else Color.DarkGray
+            canvas.setColor(x, y, baseColor)
+        }
+    }
+
+    return canvas.createBitmap()
 }
 
 fun handleKeyEvent(event: KeyEvent): Boolean {

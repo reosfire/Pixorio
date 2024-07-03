@@ -22,37 +22,11 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.zIndex
 import org.jetbrains.skia.Bitmap
-import org.jetbrains.skia.Canvas
 import ru.reosfire.pixorio.colorpicker.ColorPicker
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 
 fun Offset.toInt() = IntOffset(x.toInt(), y.toInt())
-val Offset.norm: Float
-    get() = sqrt(x * x + y * y)
-fun Offset.normalized() = Offset(x / norm, y / norm)
-fun IntOffset.distance(other: IntOffset): Float {
-    val dx = x - other.x
-    val dy = y - other.y
-    return sqrt((dx * dx + dy * dy).toFloat())
-}
-
-// TODO rewrite to normal algorithm
-fun lineBetween(start: IntOffset, end: IntOffset): List<IntOffset> {
-    if (start == end) return listOf(start)
-    val n = 1000
-    val step = (end - start).toOffset().normalized() * (start.distance(end) / n)
-    var currentPosition = start.toOffset()
-
-    val result = mutableListOf<IntOffset>()
-    repeat(n) {
-        currentPosition += step
-
-        result.add(currentPosition.round())
-    }
-    return result
-}
 
 @Composable
 @Preview
@@ -68,46 +42,41 @@ fun PixelsPainter() {
     val size = remember { IntSize(128, 128) }
 
     val checkersBitmap = remember { createCheckeredBackground(IntSize(size.width * 2, size.height * 2)).asComposeImageBitmap() }
-
-    val pixels = remember {
-        ByteArray(size.height * size.width * 4) {
-            when {
-                // Blue
-                it % 4 == 0 -> 0
-                //Green
-                it % 4 == 1 -> 0
-                // Red
-                it % 4 == 2 -> 0
-                //Alpha
-                else -> 255
-            }.toByte()
-        }
-    }
-
-    val bitmap = remember {
-        Bitmap().apply {
-            allocN32Pixels(size.width, size.height)
-            installPixels(pixels)
-        }
-    }
+    val bitmap = remember { Bitmap().apply { allocN32Pixels(size.width, size.height) } }
+    val nativeCanvas = remember { NativeCanvas(bitmap) }
 
     val composeBitmap = remember { bitmap.asComposeImageBitmap() }
 
     var scalingFactor by remember { mutableStateOf(10f) }
     var offset by remember { mutableStateOf(Offset(0f, 0f)) }
     var pressed by remember { mutableStateOf(false) }
-    var lastPress by remember { mutableStateOf(IntOffset(0, 0)) }
+    var lastPress by remember { mutableStateOf(Offset(0f, 0f)) }
 
     var currentColor by remember { mutableStateOf(Color.White) }
 
     var framesRendered by remember { mutableStateOf(0) }
+
+    val paint = remember(currentColor) {
+        Paint().apply {
+            color = currentColor
+            PaintingStyle.Stroke
+            this.strokeWidth = 1f
+            this.alpha
+            this.isAntiAlias = false
+            this.filterQuality = FilterQuality.None
+            this.strokeCap = StrokeCap.Square
+            this.strokeJoin = StrokeJoin.Bevel
+            this.shader = null
+            blendMode = BlendMode.Src
+        }.asFrameworkPaint()
+    }
 
     Row(Modifier.fillMaxSize()) {
         ColorPicker(
             onColorChanged = {
                 currentColor = it
             },
-            modifier = Modifier.width((255 + 4 + 20).dp).height((255 + 10).dp).align(Alignment.Top).zIndex(2f)
+            modifier = Modifier.width((255 + 40).dp).height((255).dp).align(Alignment.Top).zIndex(2f)
         )
 
         Box(
@@ -130,39 +99,21 @@ fun PixelsPainter() {
                     if (it.button == PointerButton.Tertiary) {
                         val click = ((it.changes.first().position - offset) / scalingFactor).toInt()
                         if (click.x < 0 || click.y < 0 || click.x >= size.width || click.y >= size.height) return@onPointerEvent
-                        val baseIndex = (click.x + click.y * size.width) * 4
-                        currentColor = Color(
-                            pixels[baseIndex + 2].toUByte().toFloat() / 255f,
-                            pixels[baseIndex + 1].toUByte().toFloat() / 255f,
-                            pixels[baseIndex].toUByte().toFloat() / 255f,
-                            pixels[baseIndex + 3].toUByte().toFloat() / 255f,
-                        )
+                        currentColor = Color(bitmap.getColor(click.x, click.y))
                     } else {
-                        val click = ((it.changes.first().position - offset) / scalingFactor).toInt()
+                        val click = ((it.changes.first().position - offset) / scalingFactor)
                         if (click.x < 0 || click.y < 0 || click.x >= size.width || click.y >= size.height) return@onPointerEvent
-                        val baseIndex = (click.x + click.y * size.width) * 4
-                        pixels[baseIndex] = (currentColor.blue * 255).toInt().toByte()
-                        pixels[baseIndex + 1] = (currentColor.green * 255).toInt().toByte()
-                        pixels[baseIndex + 2] = (currentColor.red * 255).toInt().toByte()
-                        pixels[baseIndex + 3] = (currentColor.alpha * 255).toInt().toByte()
-                        bitmap.installPixels(pixels)
+                        nativeCanvas.drawPoint(click.x, click.y, paint)
                         pressed = true
                         lastPress = click
                         framesRendered++
                     }
                 }.onPointerEvent(PointerEventType.Move) {
                     if (pressed) {
-                        val click = ((it.changes.first().position - offset) / scalingFactor).toInt()
+                        val click = ((it.changes.first().position - offset) / scalingFactor)
                         if (click.x < 0 || click.y < 0 || click.x >= size.width || click.y >= size.height) return@onPointerEvent
 
-                        for (point in lineBetween(click, lastPress)) {
-                            val baseIndex = (point.x + point.y * size.width) * 4
-                            pixels[baseIndex] = (currentColor.blue * 255).toInt().toByte()
-                            pixels[baseIndex + 1] = (currentColor.green * 255).toInt().toByte()
-                            pixels[baseIndex + 2] = (currentColor.red * 255).toInt().toByte()
-                            pixels[baseIndex + 3] = (currentColor.alpha * 255).toInt().toByte()
-                        }
-                        bitmap.installPixels(pixels)
+                        nativeCanvas.drawLine(click.x, click.y, lastPress.x, lastPress.y, paint)
 
                         lastPress = click
                         framesRendered++
@@ -174,7 +125,6 @@ fun PixelsPainter() {
         ) {
             Canvas(Modifier.fillMaxSize()) {
                 framesRendered // TODO this is still very wierd solution
-
                 drawImage(
                     checkersBitmap,
                     dstSize = IntSize((bitmap.width * scalingFactor).roundToInt(), (bitmap.height * scalingFactor).roundToInt()),
@@ -201,8 +151,8 @@ private fun createCheckeredBackground(
 
     for (y in 0 until size.height) {
         for (x in 0 until size.width) {
-            val baseColor = if ((x + y) % 2 == 0) Color.LightGray else Color.DarkGray
-            canvas.setColor(x, y, baseColor)
+            val value = if ((x + y) % 2 == 0) 0.7f else 0.8f
+            canvas.setColor(x, y, Color.hsv(0f, 0f, value))
         }
     }
 

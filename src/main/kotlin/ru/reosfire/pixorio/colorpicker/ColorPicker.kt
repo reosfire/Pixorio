@@ -3,6 +3,7 @@ package ru.reosfire.pixorio.colorpicker
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -13,11 +14,13 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.*
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import org.jetbrains.skia.Bitmap
 import ru.reosfire.pixorio.BitmapCanvas
+import ru.reosfire.pixorio.contrast
 import kotlin.math.max
 import kotlin.math.min
 
@@ -109,7 +112,12 @@ fun ColorPicker(
                     )
                 }
             }, {
-                TextField(color.toHexString(), onValueChange = {  }, Modifier.background(color))
+                BasicTextField(
+                    value = color.toHexString(),
+                    onValueChange = {  },
+                    textStyle = TextStyle.Default.copy(color = color.contrast),
+                    modifier = Modifier.background(color).fillMaxWidth()
+                )
             }
         ),
         modifier = modifier,

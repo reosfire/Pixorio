@@ -2,12 +2,18 @@ package ru.reosfire.pixorio
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.MaterialTheme.colors
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -72,12 +78,16 @@ fun PixelsPainter() {
     }
 
     Row(Modifier.fillMaxSize()) {
-        ColorPicker(
-            onColorChanged = {
-                currentColor = it
-            },
-            modifier = Modifier.width((255 + 40).dp).height((255).dp).align(Alignment.Top).zIndex(2f)
-        )
+        Column(Modifier.align(Alignment.Top).zIndex(2f)) {
+            ColorPicker(
+                onColorChanged = {
+                    currentColor = it
+                },
+                modifier = Modifier.width((255 + 40).dp).height((255).dp)
+            )
+
+            ColorsPalette(listOf(Color.White, Color.Gray), modifier = Modifier.width((255 + 40).dp).height((255).dp))
+        }
 
         Box(
             modifier = Modifier
@@ -157,6 +167,22 @@ private fun createCheckeredBackground(
     }
 
     return canvas.createBitmap()
+}
+
+@Composable
+fun ColorsPalette(
+    colors: List<Color>,
+    modifier: Modifier = Modifier,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 28.dp),
+        contentPadding = PaddingValues(10.dp),
+        modifier = modifier.background(Color.Black)
+    ) {
+        items(colors.size) { index ->
+            Spacer(Modifier.width(28.dp).height(28.dp).clip(RoundedCornerShape(4.dp)).background(colors[index]))
+        }
+    }
 }
 
 fun handleKeyEvent(event: KeyEvent): Boolean {

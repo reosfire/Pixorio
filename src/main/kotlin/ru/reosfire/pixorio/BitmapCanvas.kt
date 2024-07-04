@@ -8,22 +8,26 @@ import org.jetbrains.skia.Bitmap
 class BitmapCanvas(
     private val size: IntSize,
     private val bitsPerPixel: Int = 4,
-) {
+): AutoCloseable {
     private val bitmap = Bitmap().apply { allocN32Pixels(size.width, size.height) }
-    val pixels = ByteArray(size.height * size.width * bitsPerPixel)
+    private val pixels = ByteArray(size.height * size.width * bitsPerPixel)
 
     fun setColor(at: IntOffset, color: Color) = setColor(at.x, at.y, color)
 
     fun setColor(x: Int, y: Int, color: Color) {
         val baseIndex = (x + y * size.width) * bitsPerPixel
-        pixels[baseIndex] = (color.blue * 255).toInt().toByte()
-        pixels[baseIndex + 1] = (color.green * 255).toInt().toByte()
-        pixels[baseIndex + 2] = (color.red * 255).toInt().toByte()
-        pixels[baseIndex + 3] = (color.alpha * 255).toInt().toByte()
+        pixels[baseIndex] = color.bInt.toByte()
+        pixels[baseIndex + 1] = color.gInt.toByte()
+        pixels[baseIndex + 2] = color.rInt.toByte()
+        pixels[baseIndex + 3] = color.aInt.toByte()
     }
 
     fun createBitmap(): Bitmap {
         bitmap.installPixels(pixels)
         return bitmap
+    }
+
+    override fun close() {
+        bitmap.close() // TODO: reuse bitmaps as much as possible. And close them when they no more needed
     }
 }

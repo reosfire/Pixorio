@@ -14,9 +14,9 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.window.WindowPosition.PlatformDefault.x
 import org.jetbrains.skia.Bitmap
 import ru.reosfire.pixorio.BitmapCanvas
+import ru.reosfire.pixorio.extensions.compose.toInt
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -56,7 +56,7 @@ fun AlphaSelector(
                 onDrawBehind {
                     drawImage(
                         background,
-                        dstSize = IntSize(size.width.toInt(), size.height.toInt()),
+                        dstSize = size.toInt(),
                         filterQuality = FilterQuality.None,
                     )
 

@@ -4,23 +4,27 @@ import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.TextField
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.runtime.*
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Color.Companion.Green
+import androidx.compose.ui.graphics.Color.Companion.Red
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.*
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import org.jetbrains.skia.Bitmap
 import ru.reosfire.pixorio.BitmapCanvas
-import ru.reosfire.pixorio.contrast
+import ru.reosfire.pixorio.extensions.compose.*
 import kotlin.math.max
 import kotlin.math.min
 
@@ -80,7 +84,7 @@ fun ColorPicker(
                     }.onPointerEvent(PointerEventType.Release) {
                         pressed = false
                     }.drawWithCache {
-                        val bitmap = colorPickerBitmap(IntSize(size.width.toInt(), size.height.toInt()), hue)
+                        val bitmap = colorPickerBitmap(size.toInt(), hue)
 
                         onDrawBehind {
                             drawImage(bitmap.asComposeImageBitmap())
@@ -112,12 +116,24 @@ fun ColorPicker(
                     )
                 }
             }, {
-                BasicTextField(
-                    value = color.toHexString(),
-                    onValueChange = {  },
-                    textStyle = TextStyle.Default.copy(color = color.contrast),
-                    modifier = Modifier.background(color).fillMaxWidth()
+                val customTextSelectionColors = TextSelectionColors(
+                    handleColor = Color.Black,
+                    backgroundColor = color.contrastColor.copy(0.4f),
                 )
+
+                CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
+                    BasicTextField(
+                        value = color.toHexString(),
+                        onValueChange = {  },
+                        textStyle = TextStyle.Default.copy(
+                            color = color.contrastColor,
+                            textAlign = TextAlign.Center,
+
+                            ),
+                        cursorBrush = SolidColor(color.contrastColor),
+                        modifier = Modifier.background(color).fillMaxWidth()
+                    )
+                }
             }
         ),
         modifier = modifier,
@@ -174,14 +190,10 @@ private fun colorPickerBitmap(size: IntSize, hue: Float): Bitmap {
 }
 
 private fun Color.toHexString(): String {
-    val r = (red * 255).toInt()
-    val g = (green * 255).toInt()
-    val b = (blue * 255).toInt()
-    val a = (alpha * 255).toInt()
-    return "${r.toHex()}${g.toHex()}${b.toHex()}${a.toHex()}"
+    return "#${rInt.toHex()}${gInt.toHex()}${bInt.toHex()}${aInt.toHex()}"
 }
 
-private fun Int.toHex(): String {
+private fun ULong.toHex(): String {
     return toString(16).padStart(2, '0')
 }
 

@@ -1,22 +1,15 @@
 package ru.reosfire.pixorio
 
-import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.MaterialTheme.colors
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
@@ -28,14 +21,13 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.zIndex
 import org.jetbrains.skia.Bitmap
+import ru.reosfire.pixorio.colorpalette.ColorsPalette
 import ru.reosfire.pixorio.colorpicker.ColorPicker
+import ru.reosfire.pixorio.extensions.compose.hsvHue
+import ru.reosfire.pixorio.extensions.compose.toInt
 import kotlin.math.roundToInt
 
-
-fun Offset.toInt() = IntOffset(x.toInt(), y.toInt())
-
 @Composable
-@Preview
 fun App() {
     MaterialTheme {
         PixelsPainter()
@@ -65,20 +57,20 @@ fun PixelsPainter() {
     val paint = remember(currentColor) {
         Paint().apply {
             color = currentColor
-            PaintingStyle.Stroke
-            this.strokeWidth = 1f
-            this.alpha
-            this.isAntiAlias = false
-            this.filterQuality = FilterQuality.None
-            this.strokeCap = StrokeCap.Square
-            this.strokeJoin = StrokeJoin.Bevel
-            this.shader = null
+            strokeWidth = 1f
+            isAntiAlias = false
+            filterQuality = FilterQuality.None
+            strokeCap = StrokeCap.Square
+            strokeJoin = StrokeJoin.Bevel
+            shader = null
             blendMode = BlendMode.Src
         }.asFrameworkPaint()
     }
 
+    val usedColors = remember { mutableSetOf<Color>() }
+
     Row(Modifier.fillMaxSize()) {
-        Column(Modifier.align(Alignment.Top).zIndex(2f)) {
+        Column(Modifier.background(Color.Gray.copy(alpha = 0.7f)).align(Alignment.Top).zIndex(2f)) {
             ColorPicker(
                 onColorChanged = {
                     currentColor = it
@@ -86,7 +78,11 @@ fun PixelsPainter() {
                 modifier = Modifier.width((255 + 40).dp).height((255).dp)
             )
 
-            ColorsPalette(listOf(Color.White, Color.Gray), modifier = Modifier.width((255 + 40).dp).height((255).dp))
+            ColorsPalette(
+                usedColors.sortedBy { it.hsvHue },
+                onColorSelect = { currentColor = it },
+                modifier = Modifier.width((255 + 40).dp).height((255).dp),
+            )
         }
 
         Box(
@@ -114,6 +110,7 @@ fun PixelsPainter() {
                         val click = ((it.changes.first().position - offset) / scalingFactor)
                         if (click.x < 0 || click.y < 0 || click.x >= size.width || click.y >= size.height) return@onPointerEvent
                         nativeCanvas.drawPoint(click.x, click.y, paint)
+                        usedColors.add(currentColor)
                         pressed = true
                         lastPress = click
                         framesRendered++
@@ -134,7 +131,7 @@ fun PixelsPainter() {
                 },
         ) {
             Canvas(Modifier.fillMaxSize()) {
-                framesRendered // TODO this is still very wierd solution
+                framesRendered // TODO this is still very wierd solution. Probably the best solution will be to create my own observable wrapper for bitmap/canvas. (Just like mutable state)
                 drawImage(
                     checkersBitmap,
                     dstSize = IntSize((bitmap.width * scalingFactor).roundToInt(), (bitmap.height * scalingFactor).roundToInt()),
@@ -167,22 +164,6 @@ private fun createCheckeredBackground(
     }
 
     return canvas.createBitmap()
-}
-
-@Composable
-fun ColorsPalette(
-    colors: List<Color>,
-    modifier: Modifier = Modifier,
-) {
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 28.dp),
-        contentPadding = PaddingValues(10.dp),
-        modifier = modifier.background(Color.Black)
-    ) {
-        items(colors.size) { index ->
-            Spacer(Modifier.width(28.dp).height(28.dp).clip(RoundedCornerShape(4.dp)).background(colors[index]))
-        }
-    }
 }
 
 fun handleKeyEvent(event: KeyEvent): Boolean {

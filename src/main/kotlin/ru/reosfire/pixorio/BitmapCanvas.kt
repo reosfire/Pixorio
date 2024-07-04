@@ -4,6 +4,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import org.jetbrains.skia.Bitmap
+import ru.reosfire.pixorio.extensions.compose.aInt
+import ru.reosfire.pixorio.extensions.compose.bInt
+import ru.reosfire.pixorio.extensions.compose.gInt
+import ru.reosfire.pixorio.extensions.compose.rInt
 
 class BitmapCanvas(
     private val size: IntSize,

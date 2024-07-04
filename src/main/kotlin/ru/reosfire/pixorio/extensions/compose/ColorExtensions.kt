@@ -1,6 +1,7 @@
-package ru.reosfire.pixorio
+package ru.reosfire.pixorio.extensions.compose
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 
 val Color.rInt: ULong
     get() = if ((value and 0x3fUL) == 0UL) {
@@ -30,16 +31,22 @@ val Color.aInt: ULong
         (alpha * 255).toULong()
     }
 
-val Color.contrast: Color
-    get() = if (hsvSaturation > 0.7f) Color.Black else Color.White
+val Color.contrastColor: Color
+    get() {
+        val currentLuminance = luminance()
+
+        val whiteScore = contrastRatio(currentLuminance, Color.White.luminance())
+        val blackScore = contrastRatio(currentLuminance, Color.Black.luminance())
+
+        return if (whiteScore > blackScore) Color.White else Color.Black
+    }
 
 val Color.hsvHue: Float
     get() {
-        if (red == green && green == blue) return 0f
-
         val delta = max - min
+        if (delta == 0f) return 0f
 
-        val hue = if (red > green && red > blue) ((green - blue) / delta) % 6
+        val hue = if (red > green && red > blue) ((green - blue) / delta)
             else if (green > red && green > blue) (blue - red) / delta + 2f
             else (red - green) / delta + 4f
 
@@ -59,4 +66,11 @@ private val Color.max: Float
     get() = maxOf(red, green, blue)
 
 private val Color.min: Float
-    get() = maxOf(red, green, blue)
+    get() = minOf(red, green, blue)
+
+private fun contrastRatio(firstLuminance: Float, secondLuminance: Float): Float =
+    if (firstLuminance < secondLuminance) {
+        (secondLuminance + 0.05f) / (firstLuminance + 0.05f)
+    } else {
+        (firstLuminance + 0.05f) / (secondLuminance + 0.05f)
+    }

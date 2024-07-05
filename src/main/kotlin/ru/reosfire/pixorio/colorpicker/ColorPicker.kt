@@ -1,6 +1,5 @@
 package ru.reosfire.pixorio.colorpicker
 
-import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
@@ -11,9 +10,8 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.Color.Companion.Green
-import androidx.compose.ui.graphics.Color.Companion.Red
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.*
@@ -21,16 +19,17 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.toSize
-import org.jetbrains.skia.Bitmap
-import ru.reosfire.pixorio.BitmapCanvas
+import org.intellij.lang.annotations.Language
+import org.jetbrains.skia.Data
+import org.jetbrains.skia.RuntimeEffect
 import ru.reosfire.pixorio.extensions.compose.*
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.math.max
 import kotlin.math.min
 
-@OptIn(ExperimentalComposeUiApi::class)
+
 @Composable
-@Preview
 fun ColorPicker(
     onColorChanged: (Color) -> Unit,
     modifier: Modifier = Modifier,
@@ -67,35 +66,16 @@ fun ColorPicker(
         updateSaturationValue(position, size)
     }
 
-    var pressed by remember { mutableStateOf(false) }
-
     Layout(
         contents = listOf(
             {
-                Layout(modifier = Modifier
-                    .onPointerEvent(PointerEventType.Press) {
-                        updatePosition(it.changes.first().position, size)
-
-                        pressed = true
-                    }.onPointerEvent(PointerEventType.Move) {
-                        if (pressed) {
-                            updatePosition(it.changes.first().position, size)
-                        }
-                    }.onPointerEvent(PointerEventType.Release) {
-                        pressed = false
-                    }.drawWithCache {
-                        val bitmap = colorPickerBitmap(size.toInt(), hue)
-
-                        onDrawBehind {
-                            drawImage(bitmap.asComposeImageBitmap())
-                            drawCircle(Color.White.copy(alpha = 0.5f), 5f, pointerPosition)
-                        }
-                    }
-                ) {_, constraints ->
-                    val minMaxSide = min(constraints.maxWidth, constraints.maxHeight)
-                    layout(minMaxSide, minMaxSide) { }
-                }
-            }, {
+                SaturationValueSelector(
+                    hue = hue,
+                    pointerPosition = pointerPosition,
+                    onPositionChanged = ::updatePosition
+                )
+            },
+            {
                 Row {
                     AlphaSelector(
                         alpha = alpha,
@@ -115,7 +95,8 @@ fun ColorPicker(
                         modifier = Modifier.width(20.dp)
                     )
                 }
-            }, {
+            },
+            {
                 val customTextSelectionColors = TextSelectionColors(
                     handleColor = Color.Black,
                     backgroundColor = color.contrastColor.copy(0.4f),
@@ -173,20 +154,50 @@ fun ColorPicker(
     )
 }
 
-private fun colorPickerBitmap(size: IntSize, hue: Float): Bitmap {
-    val canvas = BitmapCanvas(size)
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun SaturationValueSelector(
+    hue: Float,
+    pointerPosition: Offset,
+    onPositionChanged: (Offset, IntSize) -> Unit,
+) {
+    var pressed by remember { mutableStateOf(false) }
 
-    val floatSize = size.toSize()
+    val runtimeEffect = RuntimeEffect.makeForShader(SV_SPACE_SHADER)
+    val shaderDataBuffer = remember { ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN) }
 
-    for (y in 0..<size.height) {
-        for (x in 0..<size.width) {
-            val currentColor = Color.hsv(hue, x / floatSize.width, 1f - (y / floatSize.height))
+    Layout(
+        modifier = Modifier
+            .onPointerEvent(PointerEventType.Press) {
+                onPositionChanged(it.changes.first().position, size)
 
-            canvas.setColor(x, y, currentColor)
+                pressed = true
+            }.onPointerEvent(PointerEventType.Move) {
+                if (pressed) {
+                    onPositionChanged(it.changes.first().position, size)
+                }
+            }.onPointerEvent(PointerEventType.Release) {
+                pressed = false
+            }.drawWithCache {
+                val shaderData = shaderDataBuffer.createSVShaderData(hue, size)
+                val shader = runtimeEffect.makeShader(
+                    uniforms = shaderData,
+                    children = null,
+                    localMatrix = null,
+                )
+                val shaderBrush = ShaderBrush(shader)
+                val circleColor = Color.White.copy(alpha = 0.5f)
+
+                onDrawBehind {
+                    drawRect(shaderBrush)
+                    drawCircle(circleColor, 5f, pointerPosition)
+                }
+            },
+        measurePolicy = {_, constraints ->
+            val minMaxSide = min(constraints.maxWidth, constraints.maxHeight)
+            layout(minMaxSide, minMaxSide) { }
         }
-    }
-
-    return canvas.createBitmap()
+    )
 }
 
 private fun Color.toHexString(): String {
@@ -201,3 +212,35 @@ private fun <T> List<T>.requireOneElement(): T {
     require(size == 1)
     return this[0]
 }
+
+private fun ByteBuffer.createSVShaderData(
+    hue: Float,
+    size: Size,
+) = Data.makeFromBytes(
+    this.clear()
+        .putFloat(hue / 360)
+        .putFloat(size.width)
+        .putFloat(size.height)
+        .array()
+)
+
+@Language("GLSL")
+private const val SV_SPACE_SHADER = """
+uniform float hue;
+uniform float width;
+uniform float height;
+
+vec3 hsv2rgb(vec3 c)
+{
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+vec4 main(vec2 pixel) {
+    float saturation = pixel.x / width;
+    float value = pixel.y / height;
+    
+    return hsv2rgb(vec3(hue, saturation, 1.0 - value)).rgb1;
+}
+"""

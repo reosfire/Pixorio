@@ -33,12 +33,14 @@ val Color.aInt: ULong
 
 val Color.contrastColor: Color
     get() {
-        val currentLuminance = luminance()
+        // Essentially we decide between white and black, which one has more contrastRatio with given color.
+        // Where contrastRatio(a, b) = (max(a.luminance, b.luminance) + 0.05) / (min(a.luminance, b.luminance) + 0.05)
 
-        val whiteScore = contrastRatio(currentLuminance, Color.White.luminance())
-        val blackScore = contrastRatio(currentLuminance, Color.Black.luminance())
+        val colorLuminance = luminance()
+        val clShifted = colorLuminance + 0.05
+        val clSquared = clShifted * clShifted
 
-        return if (whiteScore > blackScore) Color.White else Color.Black
+        return if (WHITE_LUMINANCE_SHIFTED > clSquared / BLACK_LUMINANCE_SHIFTED) Color.White else Color.Black
     }
 
 val Color.hsvHue: Float
@@ -68,9 +70,5 @@ private val Color.max: Float
 private val Color.min: Float
     get() = minOf(red, green, blue)
 
-private fun contrastRatio(firstLuminance: Float, secondLuminance: Float): Float =
-    if (firstLuminance < secondLuminance) {
-        (secondLuminance + 0.05f) / (firstLuminance + 0.05f)
-    } else {
-        (firstLuminance + 0.05f) / (secondLuminance + 0.05f)
-    }
+private const val BLACK_LUMINANCE_SHIFTED = 0 + 0.05
+private const val WHITE_LUMINANCE_SHIFTED = 1 + 0.05

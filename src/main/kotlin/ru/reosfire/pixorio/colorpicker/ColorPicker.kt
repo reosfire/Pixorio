@@ -28,7 +28,6 @@ import java.nio.ByteOrder
 import kotlin.math.max
 import kotlin.math.min
 
-
 @Composable
 fun ColorPicker(
     onColorChanged: (Color) -> Unit,

@@ -1,8 +1,10 @@
 package ru.reosfire.pixorio.colorpicker
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
-import androidx.compose.runtime.*
-import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableFloatState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
@@ -10,45 +12,36 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asComposeImageBitmap
 import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.IntSize
 import org.jetbrains.skia.Bitmap
 import ru.reosfire.pixorio.BitmapCanvas
+import ru.reosfire.pixorio.draggable
 import ru.reosfire.pixorio.extensions.compose.toInt
 
-@OptIn(ExperimentalComposeUiApi::class)
+private val BAR_BG_COLOR = Color.Black.copy(alpha = 0.8f)
+private val BAR_COLOR = Color.hsv(0f, 0f, 0.5f)
+
 @Composable
 @Preview
 fun AlphaSelector(
-    alpha: Float,
-    onHueChanged: (Float) -> Unit,
+    alphaState: MutableFloatState,
     cellSize: Int = 5,
     modifier: Modifier = Modifier,
 ) {
-    var pressed by remember { mutableStateOf(false) }
+    var alpha by alphaState
 
     fun updateAlpha(y: Float) {
-        onHueChanged(y.coerceIn(0f, 1f))
+        alpha = y.coerceIn(0f, 1f)
     }
 
     Layout(
         modifier = modifier
-            .onPointerEvent(PointerEventType.Press) {
-                updateAlpha(it.changes.first().position.y / size.height)
-                pressed = true
-            }.onPointerEvent(PointerEventType.Move) {
-                if (pressed) {
-                    updateAlpha(it.changes.first().position.y / size.height)
-                }
-            }.onPointerEvent(PointerEventType.Release) {
-                pressed = false
-            }.drawWithCache {
+            .draggable {
+                updateAlpha(it.position.y / size.height)
+            }
+            .drawWithCache {
                 val background = createCheckeredBackground(IntSize((size.width / cellSize).toInt(), (size.height / cellSize).toInt())).asComposeImageBitmap()
-
-                val barBackgroundColor = Color.Black.copy(alpha = 0.8f)
-                val barColor = Color.hsv(0f, 0f, 0.5f)
 
                 val barLeftEnd = Offset(0f, alpha * size.height)
                 val barRightEnd = Offset(size.width, alpha * size.height)
@@ -60,8 +53,8 @@ fun AlphaSelector(
                         filterQuality = FilterQuality.None,
                     )
 
-                    drawLine(barBackgroundColor, barLeftEnd, barRightEnd, 5f)
-                    drawLine(barColor, barLeftEnd, barRightEnd, 3f)
+                    drawLine(BAR_BG_COLOR, barLeftEnd, barRightEnd, 5f)
+                    drawLine(BAR_COLOR, barLeftEnd, barRightEnd, 3f)
                 }
             }
     ) { _, constraints ->

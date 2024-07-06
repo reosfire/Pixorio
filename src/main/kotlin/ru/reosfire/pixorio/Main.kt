@@ -2,30 +2,49 @@ package ru.reosfire.pixorio
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.input.key.KeyEvent
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
-import androidx.compose.ui.unit.*
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.round
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.zIndex
 import org.jetbrains.skia.Bitmap
 import ru.reosfire.pixorio.colorpalette.ColorsPalette
 import ru.reosfire.pixorio.colorpicker.ColorPicker
+import ru.reosfire.pixorio.colorpicker.rememberColorPickerState
 import ru.reosfire.pixorio.extensions.compose.hsvHue
 import ru.reosfire.pixorio.extensions.compose.toInt
 import kotlin.math.roundToInt
+
+fun main() = application {
+    fun handleKeyEvent(event: KeyEvent): Boolean {
+        println(event.type.toString() + " " + event.key.toString())
+        return false
+    }
+
+    Window(
+        onCloseRequest = ::exitApplication,
+        title = "Pixorio",
+        onKeyEvent = ::handleKeyEvent,
+    ) {
+        App()
+    }
+}
 
 @Composable
 fun App() {
@@ -50,7 +69,8 @@ fun PixelsPainter() {
     var pressed by remember { mutableStateOf(false) }
     var lastPress by remember { mutableStateOf(Offset(0f, 0f)) }
 
-    var currentColor by remember { mutableStateOf(Color.White) }
+    val colorPickerState = rememberColorPickerState(Color.White)
+    val currentColor by colorPickerState.colorState
 
     var framesRendered by remember { mutableStateOf(0) }
 
@@ -69,29 +89,35 @@ fun PixelsPainter() {
 
     val usedColors = remember { mutableSetOf<Color>() }
 
-    Row(Modifier.fillMaxSize()) {
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    Row(Modifier
+        .fillMaxSize()
+    ) {
         Column(Modifier.background(Color.Gray.copy(alpha = 0.7f)).align(Alignment.Top).zIndex(2f)) {
             ColorPicker(
-                onColorChanged = {
-                    currentColor = it
-                },
+                state = colorPickerState,
                 modifier = Modifier.width((255 + 40).dp).height((255).dp)
             )
 
             ColorsPalette(
                 usedColors.sortedBy { it.hsvHue },
-                onColorSelect = { currentColor = it },
+                onColorSelect = { colorPickerState.setColor(it) },
                 modifier = Modifier.width((255 + 40).dp).height((255).dp),
             )
         }
 
-        Box(
-            modifier = Modifier
+        Canvas(
+            Modifier
                 .weight(1f)
                 .align(Alignment.Top)
+                .fillMaxSize()
                 .onPointerEvent(PointerEventType.Scroll) {
-                    val dScale = it.changes.first().scrollDelta.y / 2f
-                    if (scalingFactor + dScale !in 0.1f..30f) return@onPointerEvent
+                    val dScale = it.changes.first().scrollDelta.y * scalingFactor * 0.1f
+                    if (scalingFactor + dScale !in 0.2f..40f) return@onPointerEvent
                     val dSize = Offset(size.width * dScale, size.height * dScale)
 
                     val scrollPointInImageCoordinates = (it.changes.first().position - offset)
@@ -101,52 +127,66 @@ fun PixelsPainter() {
 
                     offset -= Offset(dSize.x * relativeScrollPointCoords.x, dSize.y * relativeScrollPointCoords.y)
                     framesRendered++
+                    focusRequester.requestFocus()
                 }.onPointerEvent(PointerEventType.Press) {
                     if (it.button == PointerButton.Tertiary) {
                         val click = ((it.changes.first().position - offset) / scalingFactor).toInt()
                         if (click.x < 0 || click.y < 0 || click.x >= size.width || click.y >= size.height) return@onPointerEvent
-                        currentColor = Color(bitmap.getColor(click.x, click.y))
+                        colorPickerState.setColor(Color(bitmap.getColor(click.x, click.y)))
                     } else {
                         val click = ((it.changes.first().position - offset) / scalingFactor)
                         if (click.x < 0 || click.y < 0 || click.x >= size.width || click.y >= size.height) return@onPointerEvent
                         nativeCanvas.drawPoint(click.x, click.y, paint)
+
                         usedColors.add(currentColor)
                         pressed = true
                         lastPress = click
                         framesRendered++
                     }
+                    focusRequester.requestFocus()
                 }.onPointerEvent(PointerEventType.Move) {
                     if (pressed) {
                         val click = ((it.changes.first().position - offset) / scalingFactor)
                         if (click.x < 0 || click.y < 0 || click.x >= size.width || click.y >= size.height) return@onPointerEvent
 
+
                         nativeCanvas.drawLine(click.x, click.y, lastPress.x, lastPress.y, paint)
 
                         lastPress = click
                         framesRendered++
+                        focusRequester.requestFocus()
                     }
                 }.onPointerEvent(PointerEventType.Release) {
                     pressed = false
                     framesRendered++
-                },
+                }
+                .onKeyEvent { event ->
+                    if (event.key == Key.Z && event.isCtrlPressed && event.type == KeyEventType.KeyDown) {
+                        println("undo stub")
+
+                        return@onKeyEvent true
+                    }
+
+                    false
+                }
+                .focusRequester(focusRequester)
+                .focusable()
         ) {
-            Canvas(Modifier.fillMaxSize()) {
-                framesRendered // TODO this is still very wierd solution. Probably the best solution will be to create my own observable wrapper for bitmap/canvas. (Just like mutable state)
-                drawImage(
-                    checkersBitmap,
-                    dstSize = IntSize((bitmap.width * scalingFactor).roundToInt(), (bitmap.height * scalingFactor).roundToInt()),
-                    dstOffset = offset.round(),
-                    blendMode = BlendMode.Src,
-                    filterQuality = FilterQuality.None,
-                )
-                drawImage(
-                    composeBitmap,
-                    dstSize = IntSize((bitmap.width * scalingFactor).roundToInt(), (bitmap.height * scalingFactor).roundToInt()),
-                    dstOffset = offset.round(),
-                    blendMode = BlendMode.SrcOver,
-                    filterQuality = FilterQuality.None,
-                )
-            }
+            framesRendered // TODO this is still very wierd solution. Probably the best solution will be to create my own observable wrapper for bitmap/canvas. (Just like mutable state)
+            drawImage(
+                checkersBitmap,
+                dstSize = IntSize((bitmap.width * scalingFactor).roundToInt(), (bitmap.height * scalingFactor).roundToInt()),
+                dstOffset = offset.round(),
+                blendMode = BlendMode.Src,
+                filterQuality = FilterQuality.None,
+            )
+            drawImage(
+                composeBitmap,
+                dstSize = IntSize((bitmap.width * scalingFactor).roundToInt(), (bitmap.height * scalingFactor).roundToInt()),
+                dstOffset = offset.round(),
+                blendMode = BlendMode.SrcOver,
+                filterQuality = FilterQuality.None,
+            )
         }
     }
 }
@@ -164,19 +204,4 @@ private fun createCheckeredBackground(
     }
 
     return canvas.createBitmap()
-}
-
-fun handleKeyEvent(event: KeyEvent): Boolean {
-    println(event.type.toString() + " " + event.key.toString())
-    return false
-}
-
-fun main() = application {
-    Window(
-        onCloseRequest = ::exitApplication,
-        title = "Pixorio",
-        onKeyEvent = ::handleKeyEvent,
-    ) {
-        App()
-    }
 }

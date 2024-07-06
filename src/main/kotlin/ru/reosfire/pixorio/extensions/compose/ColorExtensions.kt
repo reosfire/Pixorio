@@ -56,13 +56,13 @@ val Color.hsvHue: Float
     }
 
 val Color.hsvSaturation: Float
-    get() = max
-
-val Color.hsvValue: Float
     get() {
         val mx = max
         return if (mx == 0f) 0f else 1 - min / mx
     }
+
+val Color.hsvValue: Float
+    get() = max
 
 private val Color.max: Float
     get() = maxOf(red, green, blue)

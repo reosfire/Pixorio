@@ -31,6 +31,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skiko.toBufferedImage
+import ru.reosfire.pixorio.brushes.AbstractBrush
+import ru.reosfire.pixorio.brushes.PaintingTransaction
+import ru.reosfire.pixorio.brushes.library.Pencil
 import ru.reosfire.pixorio.colorpalette.ColorsPalette
 import ru.reosfire.pixorio.colorpicker.ColorPicker
 import ru.reosfire.pixorio.colorpicker.rememberColorPickerState
@@ -104,6 +107,19 @@ private fun App(bitmap: Bitmap) {
     }
 }
 
+class EditorContext(
+    val bitmap: Bitmap,
+    val scalingFactorState: MutableFloatState = mutableFloatStateOf(10f),
+    val offsetState: MutableState<Offset> = mutableStateOf(Offset.Zero),
+) {
+    var scalingFactor by scalingFactorState
+    var offset by offsetState
+
+    fun Offset.toLocalCoordinates(): Offset {
+        return (this - offset) / scalingFactor
+    }
+}
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun PixelsPainter(
@@ -111,18 +127,18 @@ private fun PixelsPainter(
 ) {
     val checkersBitmap = remember { createCheckeredBackground(IntSize(bitmap.width * 2, bitmap.height * 2)).asComposeImageBitmap() }
     val nativeCanvas = remember { NativeCanvas(bitmap) }
-
     val composeBitmap = remember { bitmap.asComposeImageBitmap() }
 
-    var scalingFactor by remember { mutableStateOf(10f) }
-    var offset by remember { mutableStateOf(Offset(0f, 0f)) }
-    var pressed by remember { mutableStateOf(false) }
-    var lastPress by remember { mutableStateOf(Offset(0f, 0f)) }
+    val previewBitmap = remember { Bitmap().apply { allocN32Pixels(bitmap.width, bitmap.height) } }
+    val previewComposeBitmap = remember { previewBitmap.asComposeImageBitmap() }
+    val previewNativeCanvas = remember { NativeCanvas(previewBitmap) }
+
+    val editorContext = remember { EditorContext(bitmap) }
+
+    var framesRendered by remember { mutableStateOf(0) }
 
     val colorPickerState = rememberColorPickerState(Color.White)
     val currentColor by colorPickerState.colorState
-
-    var framesRendered by remember { mutableStateOf(0) }
 
     val paint = remember(currentColor) {
         Paint().apply {
@@ -136,6 +152,7 @@ private fun PixelsPainter(
             blendMode = BlendMode.Src
         }.asFrameworkPaint()
     }
+    val currentBrush by remember(paint) { mutableStateOf<AbstractBrush>(Pencil(paint)) }
 
     val usedColors = remember { mutableSetOf<Color>() }
 
@@ -143,6 +160,9 @@ private fun PixelsPainter(
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
+
+    val transactionsQueue = remember { ArrayDeque<PaintingTransaction>() }
+    val redoQueue = remember { ArrayDeque<PaintingTransaction>() }
 
     Row(
         Modifier
@@ -166,58 +186,93 @@ private fun PixelsPainter(
                 .weight(1f)
                 .align(Alignment.Top)
                 .fillMaxSize()
-                .pointerInput(Unit) {
+                .pointerInput(currentBrush) {
+                    with(currentBrush) {
+                        setTransactionListener {
+                            it.apply(bitmap, nativeCanvas)
 
+                            previewNativeCanvas.clear(0)
+
+                            transactionsQueue.add(it)
+                            redoQueue.clear()
+
+                            framesRendered++
+                        }
+
+                        setPreviewChangeListener {
+                            it.preview(previewBitmap, previewNativeCanvas)
+                            framesRendered++
+                        }
+
+                        inputEventsHandler(editorContext)
+                    }
                 }
                 .onPointerEvent(PointerEventType.Scroll) {
-                    val dScale = it.changes.first().scrollDelta.y * scalingFactor * 0.1f
-                    if (scalingFactor + dScale !in 0.2f..40f) return@onPointerEvent
+                    val dScale = it.changes.first().scrollDelta.y * editorContext.scalingFactor * 0.1f
+                    if (editorContext.scalingFactor + dScale !in 0.2f..40f) return@onPointerEvent
                     val dSize = Offset(bitmap.width * dScale, bitmap.height * dScale)
 
-                    val scrollPointInImageCoordinates = (it.changes.first().position - offset)
-                    val relativeScrollPointCoords = Offset(scrollPointInImageCoordinates.x / (bitmap.width * scalingFactor), scrollPointInImageCoordinates.y / (bitmap.height * scalingFactor))
+                    val scrollPointInImageCoordinates = (it.changes.first().position - editorContext.offset)
+                    val relativeScrollPointCoords = Offset(scrollPointInImageCoordinates.x / (bitmap.width * editorContext.scalingFactor), scrollPointInImageCoordinates.y / (bitmap.height * editorContext.scalingFactor))
 
-                    scalingFactor += dScale
+                    editorContext.scalingFactor += dScale
 
-                    offset -= Offset(dSize.x * relativeScrollPointCoords.x, dSize.y * relativeScrollPointCoords.y)
+                    editorContext.offset -= Offset(dSize.x * relativeScrollPointCoords.x, dSize.y * relativeScrollPointCoords.y)
                     framesRendered++
                     focusRequester.requestFocus()
                 }.onPointerEvent(PointerEventType.Press) {
                     if (it.button == PointerButton.Tertiary) {
-                        val click = ((it.changes.first().position - offset) / scalingFactor).toInt()
+                        val click = ((it.changes.first().position - editorContext.offset) / editorContext.scalingFactor).toInt()
                         if (click.x < 0 || click.y < 0 || click.x >= bitmap.width || click.y >= bitmap.height) return@onPointerEvent
                         colorPickerState.setColor(Color(bitmap.getColor(click.x, click.y)))
-                    } else {
-                        val click = ((it.changes.first().position - offset) / scalingFactor)
+                    } else if (it.button == PointerButton.Secondary) {
+                        val click = ((it.changes.first().position - editorContext.offset) / editorContext.scalingFactor).toInt()
                         if (click.x < 0 || click.y < 0 || click.x >= bitmap.width || click.y >= bitmap.height) return@onPointerEvent
-                        nativeCanvas.drawPoint(click.x, click.y, paint)
+
+                        val startColor = Color(bitmap.getColor(click.x, click.y))
+
+                        fun travers(currentX: Int, currentY: Int) {
+                            val traversColor = Color(bitmap.getColor(currentX, currentY))
+                            if (traversColor != startColor) return
+                            if (traversColor == currentColor) return
+
+                            nativeCanvas.drawPoint(currentX.toFloat(), currentY.toFloat(), paint)
+
+                            if (currentX > 0) travers(currentX - 1, currentY)
+                            if (currentX + 1 < bitmap.width) travers(currentX + 1, currentY)
+                            if (currentY > 0) travers(currentX, currentY - 1)
+                            if (currentY + 1 < bitmap.height) travers(currentX, currentY + 1)
+                        }
+
+                        travers(click.x, click.y)
 
                         usedColors.add(currentColor)
-                        pressed = true
-                        lastPress = click
                         framesRendered++
                     }
                     focusRequester.requestFocus()
-                }.onPointerEvent(PointerEventType.Move) {
-                    if (pressed) {
-                        val click = ((it.changes.first().position - offset) / scalingFactor)
-                        if (click.x < 0 || click.y < 0 || click.x >= bitmap.width || click.y >= bitmap.height) return@onPointerEvent
-
-                        nativeCanvas.drawLine(click.x, click.y, lastPress.x, lastPress.y, paint)
-
-                        lastPress = click
-                        framesRendered++
-                        focusRequester.requestFocus()
-                    }
-                }.onPointerEvent(PointerEventType.Release) {
-                    pressed = false
-                    framesRendered++
                 }
                 .onKeyEvent { event ->
                     if (event.key == Key.Z && event.isCtrlPressed && event.type == KeyEventType.KeyDown) {
-                        println("undo stub")
+                        if (transactionsQueue.isNotEmpty()) {
+                            val lastTransaction = transactionsQueue.removeLast()
+                            lastTransaction.revert(bitmap, nativeCanvas)
+                            redoQueue.add(lastTransaction)
 
-                        return@onKeyEvent true
+                            framesRendered++
+                            return@onKeyEvent true
+                        }
+                    }
+                    if (event.key == Key.Y && event.isCtrlPressed && event.type == KeyEventType.KeyDown) {
+                        if (redoQueue.isNotEmpty()) {
+                            val lastTransaction = redoQueue.removeLast()
+
+                            lastTransaction.apply(bitmap, nativeCanvas)
+
+                            transactionsQueue.add(lastTransaction)
+
+                            framesRendered++
+                            return@onKeyEvent true
+                        }
                     }
 
                     false
@@ -228,15 +283,22 @@ private fun PixelsPainter(
             framesRendered // TODO this is still very wierd solution. Probably the best solution will be to create my own observable wrapper for bitmap/canvas. (Just like mutable state)
             drawImage(
                 checkersBitmap,
-                dstSize = IntSize((bitmap.width * scalingFactor).roundToInt(), (bitmap.height * scalingFactor).roundToInt()),
-                dstOffset = offset.round(),
+                dstSize = IntSize((bitmap.width * editorContext.scalingFactor).roundToInt(), (bitmap.height * editorContext.scalingFactor).roundToInt()),
+                dstOffset = editorContext.offset.round(),
                 blendMode = BlendMode.Src,
                 filterQuality = FilterQuality.None,
             )
             drawImage(
                 composeBitmap,
-                dstSize = IntSize((bitmap.width * scalingFactor).roundToInt(), (bitmap.height * scalingFactor).roundToInt()),
-                dstOffset = offset.round(),
+                dstSize = IntSize((bitmap.width * editorContext.scalingFactor).roundToInt(), (bitmap.height * editorContext.scalingFactor).roundToInt()),
+                dstOffset = editorContext.offset.round(),
+                blendMode = BlendMode.SrcOver,
+                filterQuality = FilterQuality.None,
+            )
+            drawImage(
+                previewComposeBitmap,
+                dstSize = IntSize((bitmap.width * editorContext.scalingFactor).roundToInt(), (bitmap.height * editorContext.scalingFactor).roundToInt()),
+                dstOffset = editorContext.offset.round(),
                 blendMode = BlendMode.SrcOver,
                 filterQuality = FilterQuality.None,
             )

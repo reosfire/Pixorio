@@ -33,9 +33,12 @@ import org.jetbrains.skia.Bitmap
 import org.jetbrains.skiko.toBufferedImage
 import ru.reosfire.pixorio.brushes.AbstractBrush
 import ru.reosfire.pixorio.brushes.PaintingTransaction
+import ru.reosfire.pixorio.brushes.library.Fill
 import ru.reosfire.pixorio.brushes.library.Pencil
 import ru.reosfire.pixorio.extensions.compose.hsvHue
 import ru.reosfire.pixorio.extensions.compose.toInt
+import ru.reosfire.pixorio.ui.components.brushes.palette.BrushUiData
+import ru.reosfire.pixorio.ui.components.brushes.palette.BrushesPalette
 import ru.reosfire.pixorio.ui.components.colorpalette.ColorsPalette
 import ru.reosfire.pixorio.ui.components.colorpicker.ColorPicker
 import ru.reosfire.pixorio.ui.components.colorpicker.rememberColorPickerState
@@ -152,7 +155,10 @@ private fun PixelsPainter(
             blendMode = BlendMode.Src
         }.asFrameworkPaint()
     }
-    val currentBrush by remember(paint) { mutableStateOf<AbstractBrush>(Pencil(paint)) }
+
+    var brushFactory by remember { mutableStateOf<(NativePaint) -> AbstractBrush>({ Pencil(it) }) }
+
+    val currentBrush by remember(paint, brushFactory) { mutableStateOf(brushFactory(paint)) }
 
     val usedColors = remember { mutableSetOf<Color>() }
 
@@ -179,6 +185,27 @@ private fun PixelsPainter(
                 onColorSelect = { colorPickerState.setColor(it) },
                 modifier = Modifier.width((255 + 40).dp).height((255).dp),
             )
+
+            BrushesPalette(
+                brushes = listOf(
+                    BrushUiData(
+                        name = "Pencil",
+                        factorize = {
+                            Pencil(it)
+                        }
+                    ),
+                    BrushUiData(
+                        name = "Fill",
+                        factorize = {
+                            Fill(it)
+                        }
+                    )
+                ),
+                onBrushSelect = {
+                    brushFactory = it.factorize
+                },
+                modifier = Modifier.width((255 + 40).dp).height((255).dp),
+            )
         }
 
         Canvas(
@@ -197,9 +224,11 @@ private fun PixelsPainter(
                             redoQueue.clear()
 
                             framesRendered++
+                            usedColors.add(currentColor)
                         }
 
                         setPreviewChangeListener {
+                            previewNativeCanvas.clear(0)
                             it.preview(previewBitmap, previewNativeCanvas)
                             framesRendered++
                         }
@@ -225,29 +254,6 @@ private fun PixelsPainter(
                         val click = ((it.changes.first().position - editorContext.offset) / editorContext.scalingFactor).toInt()
                         if (click.x < 0 || click.y < 0 || click.x >= bitmap.width || click.y >= bitmap.height) return@onPointerEvent
                         colorPickerState.setColor(Color(bitmap.getColor(click.x, click.y)))
-                    } else if (it.button == PointerButton.Secondary) {
-                        val click = ((it.changes.first().position - editorContext.offset) / editorContext.scalingFactor).toInt()
-                        if (click.x < 0 || click.y < 0 || click.x >= bitmap.width || click.y >= bitmap.height) return@onPointerEvent
-
-                        val startColor = Color(bitmap.getColor(click.x, click.y))
-
-                        fun travers(currentX: Int, currentY: Int) {
-                            val traversColor = Color(bitmap.getColor(currentX, currentY))
-                            if (traversColor != startColor) return
-                            if (traversColor == currentColor) return
-
-                            nativeCanvas.drawPoint(currentX.toFloat(), currentY.toFloat(), paint)
-
-                            if (currentX > 0) travers(currentX - 1, currentY)
-                            if (currentX + 1 < bitmap.width) travers(currentX + 1, currentY)
-                            if (currentY > 0) travers(currentX, currentY - 1)
-                            if (currentY + 1 < bitmap.height) travers(currentX, currentY + 1)
-                        }
-
-                        travers(click.x, click.y)
-
-                        usedColors.add(currentColor)
-                        framesRendered++
                     }
                     focusRequester.requestFocus()
                 }

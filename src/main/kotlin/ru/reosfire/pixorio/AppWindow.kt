@@ -34,11 +34,11 @@ import org.jetbrains.skiko.toBufferedImage
 import ru.reosfire.pixorio.brushes.AbstractBrush
 import ru.reosfire.pixorio.brushes.PaintingTransaction
 import ru.reosfire.pixorio.brushes.library.Pencil
-import ru.reosfire.pixorio.colorpalette.ColorsPalette
-import ru.reosfire.pixorio.colorpicker.ColorPicker
-import ru.reosfire.pixorio.colorpicker.rememberColorPickerState
 import ru.reosfire.pixorio.extensions.compose.hsvHue
 import ru.reosfire.pixorio.extensions.compose.toInt
+import ru.reosfire.pixorio.ui.components.colorpalette.ColorsPalette
+import ru.reosfire.pixorio.ui.components.colorpicker.ColorPicker
+import ru.reosfire.pixorio.ui.components.colorpicker.rememberColorPickerState
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.math.roundToInt

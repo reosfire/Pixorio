@@ -1,4 +1,4 @@
-package ru.reosfire.pixorio.colorpicker
+package ru.reosfire.pixorio.ui.components.colorpicker
 
 import androidx.compose.desktop.ui.tooling.preview.Preview
 import androidx.compose.runtime.*

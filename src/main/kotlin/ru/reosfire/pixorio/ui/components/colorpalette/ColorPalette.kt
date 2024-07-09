@@ -1,4 +1,4 @@
-package ru.reosfire.pixorio.colorpalette
+package ru.reosfire.pixorio.ui.components.colorpalette
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement

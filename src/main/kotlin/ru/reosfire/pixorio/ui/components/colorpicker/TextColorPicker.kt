@@ -8,8 +8,6 @@ import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -40,7 +38,6 @@ fun TextColorPicker(
         backgroundColor = color.contrastColor.copy(0.4f),
     )
 
-    val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
 
     CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
@@ -71,7 +68,6 @@ fun TextColorPicker(
                     }
                     else false
                 }
-                .focusRequester(focusRequester)
                 .focusable()
                 .onFocusChanged { text = color.toHexString() }
         )

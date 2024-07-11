@@ -1,11 +1,8 @@
 package ru.reosfire.pixorio.brushes.library
 
-import androidx.compose.ui.graphics.NativeCanvas
-import androidx.compose.ui.graphics.NativePaint
-import androidx.compose.ui.input.pointer.AwaitPointerEventScope
-import androidx.compose.ui.input.pointer.PointerEvent
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.IntOffset
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Image
@@ -14,7 +11,22 @@ import ru.reosfire.pixorio.brushes.AbstractBrush
 import ru.reosfire.pixorio.brushes.PaintingTransaction
 import ru.reosfire.pixorio.extensions.compose.toInt
 
-class Fill(private val paint: NativePaint) : AbstractBrush() {
+@OptIn(ExperimentalComposeUiApi::class)
+class Fill(color: Color) : AbstractBrush() {
+
+    private val paint = Paint().apply {
+        this.color = color
+        strokeWidth = 1f
+        isAntiAlias = false
+        filterQuality = FilterQuality.None
+        shader = null
+        blendMode = BlendMode.Src
+        strokeCap = StrokeCap.Square
+        strokeJoin = StrokeJoin.Miter
+        alpha = color.alpha
+        style = PaintingStyle.Stroke
+        colorFilter = null
+    }.asFrameworkPaint()
 
     override suspend fun PointerInputScope.inputEventsHandler(editorContext: EditorContext) {
         awaitPointerEventScope {
@@ -29,6 +41,8 @@ class Fill(private val paint: NativePaint) : AbstractBrush() {
     }
 
     private fun AwaitPointerEventScope.onPress(event: PointerEvent, editorContext: EditorContext) {
+        if (event.button != PointerButton.Primary) return
+
         val click = with (editorContext) { event.changes.first().position.toLocalCoordinates() }
         if (click.x < 0 || click.y < 0 || click.x >= editorContext.bitmap.width || click.y >= editorContext.bitmap.height) return
 
@@ -39,7 +53,7 @@ class Fill(private val paint: NativePaint) : AbstractBrush() {
         val click = with (editorContext) { event.changes.first().position.toLocalCoordinates() }
         if (click.x < 0 || click.y < 0 || click.x >= editorContext.bitmap.width || click.y >= editorContext.bitmap.height) return
 
-        // emitPreviewChange(FillTransaction(click.toInt(), paint))
+        emitPreviewChange(FillTransaction(click.toInt(), paint))
     }
 
     class FillTransaction(

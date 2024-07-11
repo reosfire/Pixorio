@@ -30,6 +30,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.Image
 import org.jetbrains.skiko.toBufferedImage
 import ru.reosfire.pixorio.brushes.AbstractBrush
 import ru.reosfire.pixorio.brushes.PaintingTransaction
@@ -143,24 +144,11 @@ private fun PixelsPainter(
     val colorPickerState = rememberColorPickerState(Color.White)
     val currentColor by colorPickerState.colorState
 
-    val paint = remember(currentColor) {
-        Paint().apply {
-            color = currentColor
-            strokeWidth = 1f
-            isAntiAlias = false
-            filterQuality = FilterQuality.None
-            strokeCap = StrokeCap.Square
-            strokeJoin = StrokeJoin.Bevel
-            shader = null
-            blendMode = BlendMode.Src
-        }.asFrameworkPaint()
-    }
+    var brushFactory by remember { mutableStateOf<(Color) -> AbstractBrush>({ Pencil(it) }) }
 
-    var brushFactory by remember { mutableStateOf<(NativePaint) -> AbstractBrush>({ Pencil(it) }) }
+    val currentBrush by remember(currentColor, brushFactory) { mutableStateOf(brushFactory(currentColor)) }
 
-    val currentBrush by remember(paint, brushFactory) { mutableStateOf(brushFactory(paint)) }
-
-    val usedColors = remember { mutableSetOf<Color>() }
+    val usedColors = remember { mutableStateListOf<Color>() }
 
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -215,16 +203,19 @@ private fun PixelsPainter(
                             it.apply(bitmap, nativeCanvas)
 
                             previewNativeCanvas.clear(0)
+                            previewNativeCanvas.drawImage(Image.makeFromBitmap(bitmap), 0f, 0f)
 
                             transactionsQueue.add(it)
                             redoQueue.clear()
 
                             framesRendered++
-                            usedColors.add(currentColor)
+                            if (currentColor !in usedColors) usedColors.add(currentColor)
                         }
 
                         setPreviewChangeListener {
                             previewNativeCanvas.clear(0)
+                            previewNativeCanvas.drawImage(Image.makeFromBitmap(bitmap), 0f, 0f)
+
                             it.preview(previewBitmap, previewNativeCanvas)
                             framesRendered++
                         }
@@ -257,7 +248,11 @@ private fun PixelsPainter(
                     if (event.key == Key.Z && event.isCtrlPressed && event.type == KeyEventType.KeyDown) {
                         if (transactionsQueue.isNotEmpty()) {
                             val lastTransaction = transactionsQueue.removeLast()
+
                             lastTransaction.revert(bitmap, nativeCanvas)
+                            previewNativeCanvas.clear(0)
+                            previewNativeCanvas.drawImage(Image.makeFromBitmap(bitmap), 0f, 0f)
+
                             redoQueue.add(lastTransaction)
 
                             framesRendered++
@@ -269,6 +264,8 @@ private fun PixelsPainter(
                             val lastTransaction = redoQueue.removeLast()
 
                             lastTransaction.apply(bitmap, nativeCanvas)
+                            previewNativeCanvas.clear(0)
+                            previewNativeCanvas.drawImage(Image.makeFromBitmap(bitmap), 0f, 0f)
 
                             transactionsQueue.add(lastTransaction)
 
@@ -293,13 +290,6 @@ private fun PixelsPainter(
                             dstSize = roundResultSize,
                             dstOffset = roundOffset,
                             blendMode = BlendMode.Src,
-                            filterQuality = FilterQuality.None,
-                        )
-                        drawImage(
-                            composeBitmap,
-                            dstSize = roundResultSize,
-                            dstOffset = roundOffset,
-                            blendMode = BlendMode.SrcOver,
                             filterQuality = FilterQuality.None,
                         )
                         drawImage(

@@ -1,26 +1,36 @@
 package ru.reosfire.pixorio.brushes.library
 
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.NativeCanvas
-import androidx.compose.ui.graphics.NativePaint
-import androidx.compose.ui.input.pointer.AwaitPointerEventScope
-import androidx.compose.ui.input.pointer.PointerEvent
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.IntOffset
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Image
 import ru.reosfire.pixorio.EditorContext
 import ru.reosfire.pixorio.brushes.AbstractBrush
 import ru.reosfire.pixorio.brushes.PaintingTransaction
+import ru.reosfire.pixorio.brushes.PreviewTransaction
 import ru.reosfire.pixorio.extensions.compose.toInt
 
-class Pencil(private val paint: NativePaint) : AbstractBrush() {
+@OptIn(ExperimentalComposeUiApi::class)
+class Pencil(color: Color) : AbstractBrush() {
 
-    private var currentTransaction: PencilTransaction = PencilTransaction(
-        mutableListOf(),
-        paint
-    )
+    private val paint = Paint().apply {
+        this.color = color
+        strokeWidth = 1f
+        isAntiAlias = false
+        filterQuality = FilterQuality.None
+        shader = null
+        blendMode = BlendMode.Src
+        strokeCap = StrokeCap.Square
+        strokeJoin = StrokeJoin.Miter
+        alpha = color.alpha
+        style = PaintingStyle.Stroke
+        colorFilter = null
+    }.asFrameworkPaint()
+
+    private var currentTransaction: PencilTransaction = PencilTransaction(paint)
 
     private var lastPress = Offset.Zero
     private var pressed = false
@@ -39,10 +49,12 @@ class Pencil(private val paint: NativePaint) : AbstractBrush() {
     }
 
     private fun AwaitPointerEventScope.onPress(event: PointerEvent, editorContext: EditorContext) {
+        if (event.button != PointerButton.Primary) return
+
         val click = with (editorContext) { event.changes.first().position.toLocalCoordinates() }
         if (click.x < 0 || click.y < 0 || click.x >= editorContext.bitmap.width || click.y >= editorContext.bitmap.height) return
 
-        currentTransaction.addPoint(click.toInt())
+        currentTransaction.addPoint(click)
 
         pressed = true
         lastPress = click
@@ -55,26 +67,40 @@ class Pencil(private val paint: NativePaint) : AbstractBrush() {
             val click = with (editorContext) { event.changes.first().position.toLocalCoordinates() }
             if (click.x < 0 || click.y < 0 || click.x >= editorContext.bitmap.width || click.y >= editorContext.bitmap.height) return
 
-            currentTransaction.addPoint(click.toInt())
+            currentTransaction.addPoint(click)
 
             lastPress = click
 
             emitPreviewChange(currentTransaction)
+        } else {
+            val click = with (editorContext) { event.changes.first().position.toLocalCoordinates() }
+            if (click.x < 0 || click.y < 0 || click.x >= editorContext.bitmap.width || click.y >= editorContext.bitmap.height) return
+
+            emitPreviewChange(PencilCurrentPointTransaction(click, paint)) // TODO reuse transactions as much as possible
         }
     }
 
     private fun AwaitPointerEventScope.onRelease(event: PointerEvent, editorContext: EditorContext) {
+        if (event.button != PointerButton.Primary) return
+
         emitTransaction(currentTransaction)
-        currentTransaction = PencilTransaction(
-            mutableListOf(),
-            paint
-        )
+        currentTransaction = PencilTransaction(paint)
         pressed = false
     }
 
-    class PencilTransaction(
-        private val points: MutableList<IntOffset>,
+    class PencilCurrentPointTransaction(
+        private val point: Offset,
         private val paint: NativePaint,
+    ) : PreviewTransaction {
+
+        override fun preview(bitmap: Bitmap, canvas: NativeCanvas) {
+            canvas.drawPoint(point.x, point.y, paint)
+        }
+    }
+
+    class PencilTransaction(
+        private val paint: NativePaint,
+        private val points: MutableList<IntOffset> = mutableListOf(),
     ) : PaintingTransaction {
 
         private var savedState: Image? = null
@@ -95,7 +121,8 @@ class Pencil(private val paint: NativePaint) : AbstractBrush() {
             canvas.drawImage(savedState!!, 0f, 0f)
         }
 
-        fun addPoint(point: IntOffset) {
+        fun addPoint(point: Offset) {
+            val point = point.toInt()
             if (points.isEmpty() || points.last() != point) points.add(point)
         }
 

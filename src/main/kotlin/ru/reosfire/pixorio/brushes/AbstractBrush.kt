@@ -5,7 +5,7 @@ import ru.reosfire.pixorio.EditorContext
 
 abstract class AbstractBrush {
     private lateinit var transactionListener: (PaintingTransaction) -> Unit
-    private lateinit var previewChangeListener: (PaintingTransaction) -> Unit
+    private lateinit var previewChangeListener: (PreviewTransaction) -> Unit
 
     abstract suspend fun PointerInputScope.inputEventsHandler(editorContext: EditorContext)
 
@@ -13,7 +13,7 @@ abstract class AbstractBrush {
         transactionListener(transaction)
     }
 
-    protected fun emitPreviewChange(transaction: PaintingTransaction) {
+    protected fun emitPreviewChange(transaction: PreviewTransaction) {
         previewChangeListener(transaction)
     }
 
@@ -21,7 +21,7 @@ abstract class AbstractBrush {
         transactionListener = listener
     }
 
-    fun setPreviewChangeListener(listener: (PaintingTransaction) -> Unit) {
+    fun setPreviewChangeListener(listener: (PreviewTransaction) -> Unit) {
         previewChangeListener = listener
     }
 }

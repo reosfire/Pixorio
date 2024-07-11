@@ -13,13 +13,12 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.NativePaint
 import androidx.compose.ui.unit.dp
 import ru.reosfire.pixorio.brushes.AbstractBrush
 
 class BrushUiData(
     val name: String,
-    val factorize: (NativePaint) -> AbstractBrush
+    val factorize: (Color) -> AbstractBrush
 )
 
 @Composable

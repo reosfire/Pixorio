@@ -1,6 +1,5 @@
 package ru.reosfire.pixorio
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
@@ -9,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -190,15 +190,11 @@ private fun PixelsPainter(
                 brushes = listOf(
                     BrushUiData(
                         name = "Pencil",
-                        factorize = {
-                            Pencil(it)
-                        }
+                        factorize = ::Pencil
                     ),
                     BrushUiData(
                         name = "Fill",
-                        factorize = {
-                            Fill(it)
-                        }
+                        factorize = ::Fill
                     )
                 ),
                 onBrushSelect = {
@@ -208,7 +204,7 @@ private fun PixelsPainter(
             )
         }
 
-        Canvas(
+        Spacer(
             Modifier
                 .weight(1f)
                 .align(Alignment.Top)
@@ -285,30 +281,37 @@ private fun PixelsPainter(
                 }
                 .focusRequester(focusRequester)
                 .focusable()
-        ) {
-            framesRendered // TODO this is still very wierd solution. Probably the best solution will be to create my own observable wrapper for bitmap/canvas. (Just like mutable state)
-            drawImage(
-                checkersBitmap,
-                dstSize = IntSize((bitmap.width * editorContext.scalingFactor).roundToInt(), (bitmap.height * editorContext.scalingFactor).roundToInt()),
-                dstOffset = editorContext.offset.round(),
-                blendMode = BlendMode.Src,
-                filterQuality = FilterQuality.None,
-            )
-            drawImage(
-                composeBitmap,
-                dstSize = IntSize((bitmap.width * editorContext.scalingFactor).roundToInt(), (bitmap.height * editorContext.scalingFactor).roundToInt()),
-                dstOffset = editorContext.offset.round(),
-                blendMode = BlendMode.SrcOver,
-                filterQuality = FilterQuality.None,
-            )
-            drawImage(
-                previewComposeBitmap,
-                dstSize = IntSize((bitmap.width * editorContext.scalingFactor).roundToInt(), (bitmap.height * editorContext.scalingFactor).roundToInt()),
-                dstOffset = editorContext.offset.round(),
-                blendMode = BlendMode.SrcOver,
-                filterQuality = FilterQuality.None,
-            )
-        }
+                .drawWithCache {
+                    onDrawBehind {
+                        framesRendered // TODO this is still very wierd solution. Probably the best solution will be to create my own observable wrapper for bitmap/canvas. (Just like mutable state)
+
+                        val roundResultSize = IntSize((bitmap.width * editorContext.scalingFactor).roundToInt(), (bitmap.height * editorContext.scalingFactor).roundToInt())
+                        val roundOffset = editorContext.offset.round()
+
+                        drawImage(
+                            checkersBitmap,
+                            dstSize = roundResultSize,
+                            dstOffset = roundOffset,
+                            blendMode = BlendMode.Src,
+                            filterQuality = FilterQuality.None,
+                        )
+                        drawImage(
+                            composeBitmap,
+                            dstSize = roundResultSize,
+                            dstOffset = roundOffset,
+                            blendMode = BlendMode.SrcOver,
+                            filterQuality = FilterQuality.None,
+                        )
+                        drawImage(
+                            previewComposeBitmap,
+                            dstSize = roundResultSize,
+                            dstOffset = roundOffset,
+                            blendMode = BlendMode.SrcOver,
+                            filterQuality = FilterQuality.None,
+                        )
+                    }
+                }
+        )
     }
 }
 

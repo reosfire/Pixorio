@@ -8,6 +8,7 @@ import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Image
 import ru.reosfire.pixorio.EditorContext
 import ru.reosfire.pixorio.brushes.AbstractBrush
+import ru.reosfire.pixorio.brushes.EmptyPreviewTransaction
 import ru.reosfire.pixorio.brushes.PaintingTransaction
 import ru.reosfire.pixorio.extensions.compose.toInt
 
@@ -22,7 +23,7 @@ class Fill(color: Color) : AbstractBrush() {
         shader = null
         blendMode = BlendMode.Src
         strokeCap = StrokeCap.Square
-        strokeJoin = StrokeJoin.Miter
+        strokeJoin = StrokeJoin.Bevel
         alpha = color.alpha
         style = PaintingStyle.Stroke
         colorFilter = null
@@ -51,7 +52,10 @@ class Fill(color: Color) : AbstractBrush() {
 
     private fun AwaitPointerEventScope.onMove(event: PointerEvent, editorContext: EditorContext) {
         val click = with (editorContext) { event.changes.first().position.toLocalCoordinates() }
-        if (click.x < 0 || click.y < 0 || click.x >= editorContext.bitmap.width || click.y >= editorContext.bitmap.height) return
+        if (click.x < 0 || click.y < 0 || click.x >= editorContext.bitmap.width || click.y >= editorContext.bitmap.height) {
+            emitPreviewChange(EmptyPreviewTransaction)
+            return
+        }
 
         emitPreviewChange(FillTransaction(click.toInt(), paint))
     }
@@ -75,8 +79,7 @@ class Fill(color: Color) : AbstractBrush() {
 
         override fun revert(bitmap: Bitmap, canvas: NativeCanvas) {
             if (savedState == null) error("cannot revert transaction which is not applied")
-            canvas.clear(0)
-            canvas.drawImage(savedState!!, 0f, 0f)
+            savedState!!.readPixels(bitmap)
         }
 
         private fun renderTo(bitmap: Bitmap, canvas: NativeCanvas) {

@@ -50,6 +50,7 @@ import kotlin.math.roundToInt
 @Composable
 fun ApplicationScope.AppWindow(
     bitmapSize: IntSize,
+    onCloseRequest: () -> Unit,
 ) {
     val coroutineScope = rememberCoroutineScope()
 
@@ -63,7 +64,7 @@ fun ApplicationScope.AppWindow(
     var saveLocation by remember { mutableStateOf<File?>(null) }
 
     Window(
-        onCloseRequest = ::exitApplication,
+        onCloseRequest = onCloseRequest,
         title = "Pixorio",
         onKeyEvent = ::handleKeyEvent,
         state = rememberWindowState(WindowPlacement.Maximized),
@@ -202,8 +203,7 @@ private fun PixelsPainter(
                         setTransactionListener {
                             it.apply(bitmap, nativeCanvas)
 
-                            previewNativeCanvas.clear(0)
-                            previewNativeCanvas.drawImage(Image.makeFromBitmap(bitmap), 0f, 0f)
+                            Image.makeFromBitmap(bitmap).readPixels(previewBitmap)
 
                             transactionsQueue.add(it)
                             redoQueue.clear()
@@ -213,8 +213,7 @@ private fun PixelsPainter(
                         }
 
                         setPreviewChangeListener {
-                            previewNativeCanvas.clear(0)
-                            previewNativeCanvas.drawImage(Image.makeFromBitmap(bitmap), 0f, 0f)
+                            Image.makeFromBitmap(bitmap).readPixels(previewBitmap)
 
                             it.preview(previewBitmap, previewNativeCanvas)
                             framesRendered++
@@ -250,8 +249,7 @@ private fun PixelsPainter(
                             val lastTransaction = transactionsQueue.removeLast()
 
                             lastTransaction.revert(bitmap, nativeCanvas)
-                            previewNativeCanvas.clear(0)
-                            previewNativeCanvas.drawImage(Image.makeFromBitmap(bitmap), 0f, 0f)
+                            Image.makeFromBitmap(bitmap).readPixels(previewBitmap)
 
                             redoQueue.add(lastTransaction)
 
@@ -264,8 +262,7 @@ private fun PixelsPainter(
                             val lastTransaction = redoQueue.removeLast()
 
                             lastTransaction.apply(bitmap, nativeCanvas)
-                            previewNativeCanvas.clear(0)
-                            previewNativeCanvas.drawImage(Image.makeFromBitmap(bitmap), 0f, 0f)
+                            Image.makeFromBitmap(bitmap).readPixels(previewBitmap)
 
                             transactionsQueue.add(lastTransaction)
 

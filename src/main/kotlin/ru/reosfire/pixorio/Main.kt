@@ -25,7 +25,12 @@ fun main() = application {
                 }
             )
         ApplicationState.Editor -> {
-            AppWindow(bitmapSize)
+            AppWindow(
+                bitmapSize = bitmapSize,
+                onCloseRequest = {
+                    applicationState = ApplicationState.Launcher
+                }
+            )
         }
     }
 }

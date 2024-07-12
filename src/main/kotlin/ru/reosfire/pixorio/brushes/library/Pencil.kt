@@ -9,6 +9,7 @@ import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Image
 import ru.reosfire.pixorio.EditorContext
 import ru.reosfire.pixorio.brushes.AbstractBrush
+import ru.reosfire.pixorio.brushes.EmptyPreviewTransaction
 import ru.reosfire.pixorio.brushes.PaintingTransaction
 import ru.reosfire.pixorio.brushes.PreviewTransaction
 import ru.reosfire.pixorio.extensions.compose.toInt
@@ -74,7 +75,10 @@ class Pencil(color: Color) : AbstractBrush() {
             emitPreviewChange(currentTransaction)
         } else {
             val click = with (editorContext) { event.changes.first().position.toLocalCoordinates() }
-            if (click.x < 0 || click.y < 0 || click.x >= editorContext.bitmap.width || click.y >= editorContext.bitmap.height) return
+            if (click.x < 0 || click.y < 0 || click.x >= editorContext.bitmap.width || click.y >= editorContext.bitmap.height) {
+                emitPreviewChange(EmptyPreviewTransaction)
+                return
+            }
 
             emitPreviewChange(PencilCurrentPointTransaction(click, paint)) // TODO reuse transactions as much as possible
         }
@@ -117,8 +121,7 @@ class Pencil(color: Color) : AbstractBrush() {
 
         override fun revert(bitmap: Bitmap, canvas: NativeCanvas) {
             if (savedState == null) error("cannot revert transaction which is not applied")
-            canvas.clear(0)
-            canvas.drawImage(savedState!!, 0f, 0f)
+            savedState!!.readPixels(bitmap)
         }
 
         fun addPoint(point: Offset) {

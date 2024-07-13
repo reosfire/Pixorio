@@ -13,6 +13,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -29,8 +32,7 @@ import io.github.vinceglb.filekit.core.pickFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.jetbrains.skia.Bitmap
-import org.jetbrains.skia.Image
+import org.jetbrains.skia.*
 import org.jetbrains.skiko.toBufferedImage
 import ru.reosfire.pixorio.brushes.AbstractBrush
 import ru.reosfire.pixorio.brushes.PaintingTransaction
@@ -54,7 +56,7 @@ fun ApplicationScope.AppWindow(
 ) {
     val coroutineScope = rememberCoroutineScope()
 
-    val bitmap = remember { Bitmap().apply { allocN32Pixels(bitmapSize.width, bitmapSize.height) } }
+    val bitmap = remember { Bitmap().apply { allocPixels(ImageInfo.makeN32(bitmapSize.width, bitmapSize.height, ColorAlphaType.UNPREMUL, ColorSpace.sRGB)) } }
 
     fun handleKeyEvent(event: KeyEvent): Boolean {
         println(event.type.toString() + " " + event.key.toString())
@@ -132,9 +134,8 @@ private fun PixelsPainter(
 ) {
     val checkersBitmap = remember { createCheckeredBackground(IntSize(bitmap.width * 2, bitmap.height * 2)).asComposeImageBitmap() }
     val nativeCanvas = remember { NativeCanvas(bitmap) }
-    val composeBitmap = remember { bitmap.asComposeImageBitmap() }
 
-    val previewBitmap = remember { Bitmap().apply { allocN32Pixels(bitmap.width, bitmap.height) } }
+    val previewBitmap = remember { Bitmap().apply { allocPixels(ImageInfo.makeN32(bitmap.width, bitmap.height, ColorAlphaType.UNPREMUL, ColorSpace.sRGB)) } }
     val previewComposeBitmap = remember { previewBitmap.asComposeImageBitmap() }
     val previewNativeCanvas = remember { NativeCanvas(previewBitmap) }
 

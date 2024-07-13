@@ -23,7 +23,7 @@ class Fill(color: Color) : AbstractBrush() {
         shader = null
         blendMode = BlendMode.Src
         strokeCap = StrokeCap.Square
-        strokeJoin = StrokeJoin.Bevel
+        strokeJoin = StrokeJoin.Miter
         alpha = color.alpha
         style = PaintingStyle.Stroke
         colorFilter = null
@@ -84,11 +84,12 @@ class Fill(color: Color) : AbstractBrush() {
 
         private fun renderTo(bitmap: Bitmap, canvas: NativeCanvas) {
             val startColor = bitmap.getColor(startingPoint.x, startingPoint.y)
+            val paintColor = paint.color.normalizeColor()
 
             fun travers(currentX: Int, currentY: Int) {
                 val traversColor = bitmap.getColor(currentX, currentY)
                 if (traversColor != startColor) return
-                if (traversColor == paint.color) return
+                if (traversColor == paintColor) return
 
                 canvas.drawPoint(currentX.toFloat(), currentY.toFloat(), paint)
 
@@ -101,4 +102,9 @@ class Fill(color: Color) : AbstractBrush() {
             travers(startingPoint.x, startingPoint.y)
         }
     }
+}
+
+private fun Int.normalizeColor(): Int {
+    val alpha = this shr 24
+    return if (alpha == 0) 0 else this
 }

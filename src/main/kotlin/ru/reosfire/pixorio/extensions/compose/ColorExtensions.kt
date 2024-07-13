@@ -52,7 +52,8 @@ val Color.hsvHue: Float
             else if (green > red && green > blue) (blue - red) / delta + 2f
             else (red - green) / delta + 4f
 
-        return hue * 60
+        // Ensuring that result will be positive and in [0; 360)
+        return (hue * 60 + 360) % 360
     }
 
 val Color.hsvSaturation: Float

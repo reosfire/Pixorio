@@ -21,9 +21,7 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.round
+import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.*
 import androidx.compose.ui.zIndex
 import io.github.vinceglb.filekit.core.FileKit
@@ -32,6 +30,7 @@ import io.github.vinceglb.filekit.core.pickFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.intellij.lang.annotations.Language
 import org.jetbrains.skia.*
 import org.jetbrains.skiko.toBufferedImage
 import ru.reosfire.pixorio.brushes.AbstractBrush
@@ -46,6 +45,8 @@ import ru.reosfire.pixorio.ui.components.colorpalette.ColorsPalette
 import ru.reosfire.pixorio.ui.components.colorpicker.ColorPicker
 import ru.reosfire.pixorio.ui.components.colorpicker.rememberColorPickerState
 import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import javax.imageio.ImageIO
 import kotlin.math.roundToInt
 
@@ -132,7 +133,6 @@ class EditorContext(
 private fun PixelsPainter(
     bitmap: Bitmap,
 ) {
-    val checkersBitmap = remember { createCheckeredBackground(IntSize(bitmap.width * 2, bitmap.height * 2)).asComposeImageBitmap() }
     val nativeCanvas = remember { NativeCanvas(bitmap) }
 
     val previewBitmap = remember { Bitmap().apply { allocPixels(ImageInfo.makeN32(bitmap.width, bitmap.height, ColorAlphaType.UNPREMUL, ColorSpace.sRGB)) } }
@@ -277,18 +277,28 @@ private fun PixelsPainter(
                 .focusRequester(focusRequester)
                 .focusable()
                 .drawWithCache {
+                    framesRendered // TODO this is still very wierd solution. Probably the best solution will be to create my own observable wrapper for bitmap/canvas. (Just like mutable state)
+
+                    val roundResultSize = IntSize((bitmap.width * editorContext.scalingFactor).roundToInt(), (bitmap.height * editorContext.scalingFactor).roundToInt())
+                    val roundOffset = editorContext.offset.round()
+
+                    val bgEffect = RuntimeEffect.makeForShader(CHECKERED_BG_SHADER)
+                    val byteBuffer = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN)
+
+                    val shaderData = byteBuffer.createCheckeredBGShaderData(
+                        squareSize = roundResultSize.width.toFloat() / bitmap.width / 2,
+                        offset = roundOffset.toOffset()
+                    )
+
+                    val shader = bgEffect.makeShader(shaderData, null, null)
+
+                    val checkeredShaderBrush = ShaderBrush(shader)
+
                     onDrawBehind {
-                        framesRendered // TODO this is still very wierd solution. Probably the best solution will be to create my own observable wrapper for bitmap/canvas. (Just like mutable state)
-
-                        val roundResultSize = IntSize((bitmap.width * editorContext.scalingFactor).roundToInt(), (bitmap.height * editorContext.scalingFactor).roundToInt())
-                        val roundOffset = editorContext.offset.round()
-
-                        drawImage(
-                            checkersBitmap,
-                            dstSize = roundResultSize,
-                            dstOffset = roundOffset,
-                            blendMode = BlendMode.Src,
-                            filterQuality = FilterQuality.None,
+                        drawRect(
+                            brush = checkeredShaderBrush,
+                            topLeft = roundOffset.toOffset(),
+                            size = roundResultSize.toSize()
                         )
                         drawImage(
                             previewComposeBitmap,
@@ -303,17 +313,32 @@ private fun PixelsPainter(
     }
 }
 
-private fun createCheckeredBackground(
-    size: IntSize
-): Bitmap {
-    val canvas = BitmapCanvas(size)
+private fun ByteBuffer.createCheckeredBGShaderData(
+    squareSize: Float,
+    offset: Offset,
+) = Data.makeFromBytes(
+    this.clear()
+        .putFloat(squareSize)
+        .putFloat(offset.x)
+        .putFloat(offset.y)
+        .array()
+)
 
-    for (y in 0 until size.height) {
-        for (x in 0 until size.width) {
-            val value = if ((x + y) % 2 == 0) 0.7f else 0.8f
-            canvas.setColor(x, y, Color.hsv(0f, 0f, value))
-        }
-    }
+@Language("GLSL")
+private const val CHECKERED_BG_SHADER = """
+uniform float squareSize;
+uniform float offsetX;
+uniform float offsetY;
 
-    return canvas.createBitmap()
+vec4 main(vec2 pixel) {
+    int x = int((pixel.x - offsetX) / squareSize);
+    int y = int((pixel.y - offsetY) / squareSize);
+    
+    float sum = float(x + y);
+    
+    if (int(mod(sum, 2.0)) == 0)
+        return vec4(0.7, 0.7, 0.7, 1.0);
+    else
+        return vec4(0.8, 0.8, 0.8, 1.0);
 }
+"""

@@ -31,7 +31,7 @@ class Pencil(color: Color) : AbstractBrush() {
         colorFilter = null
     }.asFrameworkPaint()
 
-    private val currentTransaction = PencilTransaction(paint)
+    private var currentTransaction = PencilTransaction(paint)
     private val currentPointTransaction = PencilCurrentPointTransaction(Offset.Zero, paint)
 
     private var lastPress = Offset.Zero
@@ -90,7 +90,7 @@ class Pencil(color: Color) : AbstractBrush() {
         if (event.button != PointerButton.Primary) return
 
         emitTransaction(currentTransaction)
-        currentTransaction.clear()
+        currentTransaction = PencilTransaction(paint)
         pressed = false
     }
 
@@ -129,10 +129,6 @@ class Pencil(color: Color) : AbstractBrush() {
         fun addPoint(point: Offset) {
             val point = point.toInt()
             if (points.isEmpty() || points.last() != point) points.add(point)
-        }
-
-        fun clear() {
-            points.clear()
         }
 
         private fun renderTo(bitmap: Bitmap, canvas: NativeCanvas) {

@@ -86,20 +86,23 @@ class Fill(color: Color) : AbstractBrush() {
             val startColor = bitmap.getColor(startingPoint.x, startingPoint.y)
             val paintColor = paint.color.normalizeColor()
 
-            fun travers(currentX: Int, currentY: Int) {
-                val traversColor = bitmap.getColor(currentX, currentY)
-                if (traversColor != startColor) return
-                if (traversColor == paintColor) return
+            val traversQueue = ArrayDeque<IntOffset>()
+            traversQueue.addLast(IntOffset(startingPoint.x, startingPoint.y))
+
+            while (traversQueue.isNotEmpty()) {
+                val (currentX, currentY) = traversQueue.removeFirst()
+                val currentColor = bitmap.getColor(currentX, currentY)
+
+                if (currentColor != startColor) continue
+                if (currentColor == paintColor) continue
 
                 canvas.drawPoint(currentX.toFloat(), currentY.toFloat(), paint)
 
-                if (currentX > 0) travers(currentX - 1, currentY)
-                if (currentX + 1 < bitmap.width) travers(currentX + 1, currentY)
-                if (currentY > 0) travers(currentX, currentY - 1)
-                if (currentY + 1 < bitmap.height) travers(currentX, currentY + 1)
+                if (currentX > 0) traversQueue.addLast(IntOffset(currentX - 1, currentY))
+                if (currentX + 1 < bitmap.width) traversQueue.addLast(IntOffset(currentX + 1, currentY))
+                if (currentY > 0) traversQueue.addLast(IntOffset(currentX, currentY - 1))
+                if (currentY + 1 < bitmap.height) traversQueue.addLast(IntOffset(currentX, currentY + 1))
             }
-
-            travers(startingPoint.x, startingPoint.y)
         }
     }
 }

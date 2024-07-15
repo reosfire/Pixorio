@@ -160,6 +160,8 @@ private fun PixelsPainter(
     val transactionsQueue = remember { ArrayDeque<PaintingTransaction>() }
     val redoQueue = remember { ArrayDeque<PaintingTransaction>() }
 
+    var currentImage by remember { mutableStateOf(Image.makeFromBitmap(bitmap)) }
+
     Row(
         Modifier
         .fillMaxSize()
@@ -204,7 +206,8 @@ private fun PixelsPainter(
                         setTransactionListener {
                             it.apply(bitmap, nativeCanvas)
 
-                            Image.makeFromBitmap(bitmap).readPixels(previewBitmap)
+                            currentImage = Image.makeFromBitmap(bitmap)
+                            currentImage.readPixels(previewBitmap)
 
                             transactionsQueue.add(it)
                             redoQueue.clear()
@@ -214,7 +217,7 @@ private fun PixelsPainter(
                         }
 
                         setPreviewChangeListener {
-                            Image.makeFromBitmap(bitmap).readPixels(previewBitmap)
+                            currentImage.readPixels(previewBitmap)
 
                             it.preview(previewBitmap, previewNativeCanvas)
                             framesRendered++
@@ -250,7 +253,8 @@ private fun PixelsPainter(
                             val lastTransaction = transactionsQueue.removeLast()
 
                             lastTransaction.revert(bitmap, nativeCanvas)
-                            Image.makeFromBitmap(bitmap).readPixels(previewBitmap)
+                            currentImage = Image.makeFromBitmap(bitmap)
+                            currentImage.readPixels(previewBitmap)
 
                             redoQueue.add(lastTransaction)
 
@@ -263,7 +267,8 @@ private fun PixelsPainter(
                             val lastTransaction = redoQueue.removeLast()
 
                             lastTransaction.apply(bitmap, nativeCanvas)
-                            Image.makeFromBitmap(bitmap).readPixels(previewBitmap)
+                            currentImage = Image.makeFromBitmap(bitmap)
+                            currentImage.readPixels(previewBitmap)
 
                             transactionsQueue.add(lastTransaction)
 

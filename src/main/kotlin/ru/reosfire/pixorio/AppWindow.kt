@@ -12,16 +12,17 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.*
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
 import androidx.compose.ui.zIndex
 import io.github.vinceglb.filekit.core.FileKit
@@ -48,7 +49,6 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.imageio.ImageIO
-import kotlin.math.roundToInt
 
 @Composable
 fun ApplicationScope.AppWindow(
@@ -136,7 +136,6 @@ private fun PixelsPainter(
     val nativeCanvas = remember { NativeCanvas(bitmap) }
 
     val previewBitmap = remember { Bitmap().apply { allocPixels(ImageInfo.makeN32(bitmap.width, bitmap.height, ColorAlphaType.UNPREMUL, ColorSpace.sRGB)) } }
-    val previewComposeBitmap = remember { previewBitmap.asComposeImageBitmap() }
     val previewNativeCanvas = remember { NativeCanvas(previewBitmap) }
 
     val editorContext = remember { EditorContext(bitmap) }
@@ -161,6 +160,18 @@ private fun PixelsPainter(
     val redoQueue = remember { ArrayDeque<PaintingTransaction>() }
 
     var currentImage by remember { mutableStateOf(Image.makeFromBitmap(bitmap)) }
+
+    fun updateImage() {
+        currentImage.close()
+        currentImage = Image.makeFromBitmap(bitmap)
+        currentImage.readPixels(previewBitmap)
+    }
+
+    val imageDrawerPaint = remember {
+        Paint().apply {
+            blendMode = BlendMode.SrcOver
+        }.asFrameworkPaint()
+    }
 
     Row(
         Modifier
@@ -206,8 +217,7 @@ private fun PixelsPainter(
                         setTransactionListener {
                             it.apply(bitmap, nativeCanvas)
 
-                            currentImage = Image.makeFromBitmap(bitmap)
-                            currentImage.readPixels(previewBitmap)
+                            updateImage()
 
                             transactionsQueue.add(it)
                             redoQueue.clear()
@@ -253,8 +263,7 @@ private fun PixelsPainter(
                             val lastTransaction = transactionsQueue.removeLast()
 
                             lastTransaction.revert(bitmap, nativeCanvas)
-                            currentImage = Image.makeFromBitmap(bitmap)
-                            currentImage.readPixels(previewBitmap)
+                            updateImage()
 
                             redoQueue.add(lastTransaction)
 
@@ -267,8 +276,7 @@ private fun PixelsPainter(
                             val lastTransaction = redoQueue.removeLast()
 
                             lastTransaction.apply(bitmap, nativeCanvas)
-                            currentImage = Image.makeFromBitmap(bitmap)
-                            currentImage.readPixels(previewBitmap)
+                            updateImage()
 
                             transactionsQueue.add(lastTransaction)
 
@@ -284,15 +292,15 @@ private fun PixelsPainter(
                 .drawWithCache {
                     framesRendered // TODO this is still very wierd solution. Probably the best solution will be to create my own observable wrapper for bitmap/canvas. (Just like mutable state)
 
-                    val roundResultSize = IntSize((bitmap.width * editorContext.scalingFactor).roundToInt(), (bitmap.height * editorContext.scalingFactor).roundToInt())
-                    val roundOffset = editorContext.offset.round()
+                    val resultSize = Size(bitmap.width * editorContext.scalingFactor, bitmap.height * editorContext.scalingFactor)
+                    val offset = editorContext.offset
 
                     val bgEffect = RuntimeEffect.makeForShader(CHECKERED_BG_SHADER)
                     val byteBuffer = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN)
 
                     val shaderData = byteBuffer.createCheckeredBGShaderData(
-                        squareSize = roundResultSize.width.toFloat() / bitmap.width / 2,
-                        offset = roundOffset.toOffset()
+                        squareSize = editorContext.scalingFactor / 2,
+                        offset = offset
                     )
 
                     val shader = bgEffect.makeShader(shaderData, null, null)
@@ -302,16 +310,20 @@ private fun PixelsPainter(
                     onDrawBehind {
                         drawRect(
                             brush = checkeredShaderBrush,
-                            topLeft = roundOffset.toOffset(),
-                            size = roundResultSize.toSize()
+                            topLeft = offset,
+                            size = resultSize
                         )
-                        drawImage(
-                            previewComposeBitmap,
-                            dstSize = roundResultSize,
-                            dstOffset = roundOffset,
-                            blendMode = BlendMode.SrcOver,
-                            filterQuality = FilterQuality.None,
-                        )
+
+                        Image.makeFromBitmap(previewBitmap).use { image ->
+                            drawContext.canvas.nativeCanvas.drawImageRect(
+                                image = image,
+                                src = Rect.makeXYWH(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat()),
+                                dst = Rect.makeXYWH(offset.x, offset.y, resultSize.width, resultSize.height),
+                                samplingMode = FilterMipmap(FilterMode.NEAREST, MipmapMode.NONE), // FilterQuality.None
+                                paint = imageDrawerPaint,
+                                strict = true,
+                            )
+                        }
                     }
                 }
         )

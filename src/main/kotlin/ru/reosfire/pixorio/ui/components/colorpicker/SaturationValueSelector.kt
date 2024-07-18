@@ -6,16 +6,12 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.IntSize
 import org.intellij.lang.annotations.Language
-import org.jetbrains.skia.Data
-import org.jetbrains.skia.RuntimeEffect
+import ru.reosfire.pixorio.CachedShaderBrush
 import ru.reosfire.pixorio.draggable
 import ru.reosfire.pixorio.extensions.compose.contrastColor
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import kotlin.math.min
 
 @Composable
@@ -24,9 +20,6 @@ fun SaturationValueSelector(
     saturationState: MutableFloatState,
     valueState: MutableFloatState
 ) {
-    val runtimeEffect = RuntimeEffect.makeForShader(SV_SPACE_SHADER)
-    val shaderDataBuffer = remember { ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN) }
-
     val pointerPosition = remember { derivedStateOf { Offset(saturationState.value, 1 - valueState.value) } }
 
     fun updateSaturationValue(position: Offset, size: IntSize) {
@@ -38,25 +31,21 @@ fun SaturationValueSelector(
         updateSaturationValue(position, size)
     }
 
+    val svSpaceShaderBrush = remember { SVSpaceShaderBrush() }
+
     Layout(
         modifier = Modifier
             .draggable {
                 updatePosition(it.position, size)
             }
             .drawWithCache {
-                val shaderData = shaderDataBuffer.createSVShaderData(hueState.value, size)
-                val shader = runtimeEffect.makeShader(
-                    uniforms = shaderData,
-                    children = null,
-                    localMatrix = null,
-                )
-                val shaderBrush = ShaderBrush(shader)
+                svSpaceShaderBrush.setUniforms(hueState.value, size)
 
                 val circleColor =
                     Color.hsv(hueState.value, saturationState.value, valueState.value).contrastColor.copy(alpha = 0.5f)
 
                 onDrawBehind {
-                    drawRect(shaderBrush)
+                    drawRect(svSpaceShaderBrush)
                     drawCircle(circleColor, 4f, Offset(pointerPosition.value.x * size.width, pointerPosition.value.y * size.height))
                 }
             },
@@ -67,18 +56,16 @@ fun SaturationValueSelector(
     )
 }
 
-private fun ByteBuffer.createSVShaderData(
-    hue: Float,
-    size: Size,
-) = Data.makeFromBytes(
-    this.clear()
-        .putFloat(hue / 360)
-        .putFloat(size.width)
-        .putFloat(size.height)
-        .array()
-)
+private class SVSpaceShaderBrush: CachedShaderBrush(SV_SPACE_SHADER, 12) {
+    fun setUniforms(hue: Float, size: Size) {
+        byteBuffer
+            .putFloat(0, hue / 360)
+            .putFloat(4, size.width)
+            .putFloat(8, size.height)
+    }
+}
 
-@Language("GLSL")
+@Language("SKSL")
 private const val SV_SPACE_SHADER = """
 uniform float hue;
 uniform float width;

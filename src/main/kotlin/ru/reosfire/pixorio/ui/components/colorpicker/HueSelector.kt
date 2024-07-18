@@ -5,9 +5,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
+import org.intellij.lang.annotations.Language
+import ru.reosfire.pixorio.CachedShaderBrush
 import ru.reosfire.pixorio.draggable
 
 @Composable
@@ -22,7 +23,7 @@ fun HueSelector(
         hue = y.coerceIn(0f, 360f)
     }
 
-    val backgroundBrush = remember { hueBrush() }
+    val backgroundBrush = remember { HueSelectorShaderBrush() }
 
     Layout(
         modifier = modifier
@@ -36,6 +37,8 @@ fun HueSelector(
                 val barLeftEnd = Offset(0f, hue / 360f * size.height)
                 val barRightEnd = Offset(size.width, hue / 360f * size.height)
 
+                backgroundBrush.setUniforms(size.height)
+
                 onDrawBehind {
                     drawRect(backgroundBrush)
 
@@ -48,11 +51,26 @@ fun HueSelector(
     }
 }
 
-private fun hueBrush(colorStopsCount: Int = 36): Brush {
-    val factor = 360f / colorStopsCount
-    val colorStops = ArrayList<Color>(colorStopsCount)
-    for (i in 0..<colorStopsCount) {
-        colorStops.add(Color.hsv(i * factor, 1f, 1f))
+private class HueSelectorShaderBrush: CachedShaderBrush(HUE_SELECTOR_SHADER, 4) {
+    fun setUniforms(height: Float) {
+        byteBuffer.putFloat(0, height)
     }
-    return Brush.verticalGradient(colorStops)
 }
+
+@Language("SKSL")
+private const val HUE_SELECTOR_SHADER = """
+uniform float height;
+
+vec3 hsv2rgb(vec3 c)
+{
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+vec4 main(vec2 pixel) {
+    float hue = pixel.y / height;
+    
+    return hsv2rgb(vec3(hue, 1.0, 1.0)).rgb1;
+}
+"""

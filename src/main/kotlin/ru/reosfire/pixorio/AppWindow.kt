@@ -47,8 +47,6 @@ import ru.reosfire.pixorio.ui.components.colorpalette.ColorsPalette
 import ru.reosfire.pixorio.ui.components.colorpicker.ColorPicker
 import ru.reosfire.pixorio.ui.components.colorpicker.rememberColorPickerState
 import java.io.File
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import javax.imageio.ImageIO
 
 @Composable
@@ -174,6 +172,8 @@ private fun PixelsPainter(
         }.asFrameworkPaint()
     }
 
+    val checkeredBGShaderBrush = remember { CheckeredBGShaderBrush() }
+
     Row(
         Modifier
         .fillMaxSize()
@@ -298,21 +298,14 @@ private fun PixelsPainter(
                     val resultSize = Size(bitmap.width * editorContext.scalingFactor, bitmap.height * editorContext.scalingFactor)
                     val offset = editorContext.offset
 
-                    val bgEffect = RuntimeEffect.makeForShader(CHECKERED_BG_SHADER)
-                    val byteBuffer = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN)
-
-                    val shaderData = byteBuffer.createCheckeredBGShaderData(
+                    checkeredBGShaderBrush.setUniforms(
                         squareSize = editorContext.scalingFactor / 2,
                         offset = offset
                     )
 
-                    val shader = bgEffect.makeShader(shaderData, null, null)
-
-                    val checkeredShaderBrush = ShaderBrush(shader)
-
                     onDrawBehind {
                         drawRect(
-                            brush = checkeredShaderBrush,
+                            brush = checkeredBGShaderBrush,
                             topLeft = offset,
                             size = resultSize
                         )
@@ -333,18 +326,16 @@ private fun PixelsPainter(
     }
 }
 
-private fun ByteBuffer.createCheckeredBGShaderData(
-    squareSize: Float,
-    offset: Offset,
-) = Data.makeFromBytes(
-    this.clear()
-        .putFloat(squareSize)
-        .putFloat(offset.x)
-        .putFloat(offset.y)
-        .array()
-)
+private class CheckeredBGShaderBrush: CachedShaderBrush(CHECKERED_BG_SHADER, 12) {
+    fun setUniforms(squareSize: Float, offset: Offset) {
+        byteBuffer
+            .putFloat(0, squareSize)
+            .putFloat(4, offset.x)
+            .putFloat(8, offset.y)
+    }
+}
 
-@Language("GLSL")
+@Language("SKSL")
 private const val CHECKERED_BG_SHADER = """
 uniform float squareSize;
 uniform float offsetX;

@@ -1,23 +1,26 @@
 package ru.reosfire.pixorio.ui.components.brushes.palette
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.TooltipArea
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.res.loadImageBitmap
+import androidx.compose.ui.res.useResource
 import androidx.compose.ui.unit.dp
 import ru.reosfire.pixorio.brushes.AbstractBrush
 
-class BrushUiData(
+data class BrushUiData(
     val name: String,
+    val iconResource: String,
     val factorize: (Color) -> AbstractBrush
 )
 
@@ -27,6 +30,8 @@ fun BrushesPalette(
     onBrushSelect: (BrushUiData) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var selectedBrush by remember(brushes) { mutableStateOf(brushes.first()) } // TODO hoist it
+
     LazyVerticalGrid(
         columns = GridCells.FixedSize(size = 28.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -37,7 +42,11 @@ fun BrushesPalette(
             val brush = brushes[index]
             BrushItem(
                 brush = brush,
-                onClick = { onBrushSelect(brush) },
+                isSelected = brush == selectedBrush,
+                onClick = {
+                    onBrushSelect(brush)
+                    selectedBrush = brush
+                },
             )
         }
     }
@@ -48,18 +57,23 @@ fun BrushesPalette(
 private fun BrushItem(
     brush: BrushUiData,
     onClick: () -> Unit,
+    isSelected: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     TooltipArea(
         tooltip = {
             Text(brush.name)
         },
     ) {
-        Text(
-            text = brush.name.first().toString(),
-            modifier = Modifier
+        Image(
+            bitmap = useResource(brush.iconResource) { loadImageBitmap(it) },
+            contentDescription = brush.name.first().toString(),
+            filterQuality = FilterQuality.None,
+            modifier = modifier
                 .size(28.dp)
-                .background(Color.White)
-                .clickable(onClick = onClick)
+                .then(if (isSelected) Modifier.border(1.dp, Color.White) else Modifier)
+                .clip(RoundedCornerShape(4.dp))
+                .clickable(onClick = onClick),
         )
     }
 }

@@ -1,6 +1,7 @@
 package ru.reosfire.pixorio
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
@@ -177,33 +178,35 @@ private fun PixelsPainter(
         Modifier
         .fillMaxSize()
     ) {
-        Column(Modifier.background(Color.Gray.copy(alpha = 0.7f)).align(Alignment.Top).zIndex(2f)) {
+        Column(Modifier.fillMaxHeight().border(1.dp, Color.White).background(Color.Gray.copy(alpha = 0.7f)).align(Alignment.Top).zIndex(2f)) {
             ColorPicker(
                 state = colorPickerState,
-                modifier = Modifier.width((255 + 40).dp).height((255).dp)
+                modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
             )
 
             ColorsPalette(
                 usedColors.sortedBy { it.hsvHue },
                 onColorSelect = { colorPickerState.setColor(it) },
-                modifier = Modifier.width((255 + 40).dp).height((255).dp),
+                modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
             )
 
             BrushesPalette(
                 brushes = listOf(
                     BrushUiData(
                         name = "Pencil",
+                        iconResource = "icons/brushes/pencil.png",
                         factorize = ::Pencil
                     ),
                     BrushUiData(
                         name = "Fill",
+                        iconResource = "icons/brushes/bucket.png",
                         factorize = ::Fill
                     )
                 ),
                 onBrushSelect = {
                     brushFactory = it.factorize
                 },
-                modifier = Modifier.width((255 + 40).dp).height((255).dp),
+                modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
             )
         }
 

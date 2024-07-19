@@ -32,7 +32,6 @@ import io.github.vinceglb.filekit.core.pickFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.intellij.lang.annotations.Language
 import org.jetbrains.skia.*
 import org.jetbrains.skiko.toBufferedImage
 import ru.reosfire.pixorio.brushes.AbstractBrush
@@ -41,6 +40,7 @@ import ru.reosfire.pixorio.brushes.library.Fill
 import ru.reosfire.pixorio.brushes.library.Pencil
 import ru.reosfire.pixorio.extensions.compose.hsvHue
 import ru.reosfire.pixorio.extensions.compose.toInt
+import ru.reosfire.pixorio.shaders.CheckeredShaderBrush
 import ru.reosfire.pixorio.ui.components.brushes.palette.BrushUiData
 import ru.reosfire.pixorio.ui.components.brushes.palette.BrushesPalette
 import ru.reosfire.pixorio.ui.components.colorpalette.ColorsPalette
@@ -172,7 +172,7 @@ private fun PixelsPainter(
         }.asFrameworkPaint()
     }
 
-    val checkeredBGShaderBrush = remember { CheckeredBGShaderBrush() }
+    val checkeredShaderBrush = remember { CheckeredShaderBrush() }
 
     Row(
         Modifier
@@ -298,14 +298,14 @@ private fun PixelsPainter(
                     val resultSize = Size(bitmap.width * editorContext.scalingFactor, bitmap.height * editorContext.scalingFactor)
                     val offset = editorContext.offset
 
-                    checkeredBGShaderBrush.setUniforms(
+                    checkeredShaderBrush.setUniforms(
                         squareSize = editorContext.scalingFactor / 2,
                         offset = offset
                     )
 
                     onDrawBehind {
                         drawRect(
-                            brush = checkeredBGShaderBrush,
+                            brush = checkeredShaderBrush,
                             topLeft = offset,
                             size = resultSize
                         )
@@ -325,31 +325,3 @@ private fun PixelsPainter(
         )
     }
 }
-
-private class CheckeredBGShaderBrush: CachedShaderBrush(CHECKERED_BG_SHADER, 12) {
-    fun setUniforms(squareSize: Float, offset: Offset) {
-        byteBuffer
-            .putFloat(0, squareSize)
-            .putFloat(4, offset.x)
-            .putFloat(8, offset.y)
-    }
-}
-
-@Language("SKSL")
-private const val CHECKERED_BG_SHADER = """
-uniform float squareSize;
-uniform float offsetX;
-uniform float offsetY;
-
-vec4 main(vec2 pixel) {
-    int x = int((pixel.x - offsetX) / squareSize);
-    int y = int((pixel.y - offsetY) / squareSize);
-    
-    float sum = float(x + y);
-    
-    if (int(mod(sum, 2.0)) == 0)
-        return vec4(0.7, 0.7, 0.7, 1.0);
-    else
-        return vec4(0.8, 0.8, 0.8, 1.0);
-}
-"""

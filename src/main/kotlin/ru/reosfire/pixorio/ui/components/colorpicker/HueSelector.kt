@@ -8,8 +8,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import org.intellij.lang.annotations.Language
-import ru.reosfire.pixorio.CachedShaderBrush
 import ru.reosfire.pixorio.draggable
+import ru.reosfire.pixorio.shaders.CachedShaderBrush
 
 @Composable
 @Preview

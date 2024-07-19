@@ -1,4 +1,4 @@
-package ru.reosfire.pixorio
+package ru.reosfire.pixorio.shaders
 
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ShaderBrush

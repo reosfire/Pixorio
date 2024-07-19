@@ -14,9 +14,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.NativeCanvas
+import androidx.compose.ui.graphics.NativePaint
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -166,17 +167,15 @@ private fun PixelsPainter(
         currentImage.readPixels(previewBitmap)
     }
 
-    val imageDrawerPaint = remember {
-        Paint().apply {
-            blendMode = BlendMode.SrcOver
-        }.asFrameworkPaint()
-    }
+    val imageDrawerPaint = remember { NativePaint() }
 
     val checkeredShaderBrush = remember { CheckeredShaderBrush() }
 
+    val srcRect = remember { Rect.makeXYWH(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat()) }
+
     Row(
         Modifier
-        .fillMaxSize()
+            .fillMaxSize()
     ) {
         Column(Modifier.fillMaxHeight().border(1.dp, Color.White).background(Color.Gray.copy(alpha = 0.7f)).align(Alignment.Top).zIndex(2f)) {
             ColorPicker(
@@ -298,6 +297,8 @@ private fun PixelsPainter(
                     val resultSize = Size(bitmap.width * editorContext.scalingFactor, bitmap.height * editorContext.scalingFactor)
                     val offset = editorContext.offset
 
+                    val dstRect = Rect.makeXYWH(offset.x, offset.y, resultSize.width, resultSize.height)
+
                     checkeredShaderBrush.setUniforms(
                         squareSize = editorContext.scalingFactor / 2,
                         offset = offset
@@ -313,9 +314,9 @@ private fun PixelsPainter(
                         Image.makeFromBitmap(previewBitmap).use { image ->
                             drawContext.canvas.nativeCanvas.drawImageRect(
                                 image = image,
-                                src = Rect.makeXYWH(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat()),
-                                dst = Rect.makeXYWH(offset.x, offset.y, resultSize.width, resultSize.height),
-                                samplingMode = FilterMipmap(FilterMode.NEAREST, MipmapMode.NONE), // FilterQuality.None
+                                src = srcRect,
+                                dst = dstRect,
+                                samplingMode = SamplingMode.DEFAULT, // FilterQuality.None
                                 paint = imageDrawerPaint,
                                 strict = true,
                             )

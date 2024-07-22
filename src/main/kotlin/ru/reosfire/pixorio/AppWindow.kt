@@ -13,11 +13,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.NativeCanvas
-import androidx.compose.ui.graphics.NativePaint
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -33,13 +29,14 @@ import io.github.vinceglb.filekit.core.pickFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.jetbrains.skia.*
-import org.jetbrains.skiko.toBufferedImage
+import org.jetbrains.skia.Rect
 import ru.reosfire.pixorio.brushes.AbstractBrush
 import ru.reosfire.pixorio.brushes.PaintingTransaction
 import ru.reosfire.pixorio.brushes.library.Fill
 import ru.reosfire.pixorio.brushes.library.Pencil
+import ru.reosfire.pixorio.extensions.compose.contains
 import ru.reosfire.pixorio.extensions.compose.hsvHue
+import ru.reosfire.pixorio.extensions.compose.times
 import ru.reosfire.pixorio.extensions.compose.toInt
 import ru.reosfire.pixorio.shaders.CheckeredShaderBrush
 import ru.reosfire.pixorio.ui.components.brushes.palette.BrushUiData
@@ -49,6 +46,7 @@ import ru.reosfire.pixorio.ui.components.colorpicker.ColorPicker
 import ru.reosfire.pixorio.ui.components.colorpicker.rememberColorPickerState
 import java.io.File
 import javax.imageio.ImageIO
+import kotlin.math.max
 
 @Composable
 fun ApplicationScope.AppWindow(
@@ -57,7 +55,7 @@ fun ApplicationScope.AppWindow(
 ) {
     val coroutineScope = rememberCoroutineScope()
 
-    val bitmap = remember { Bitmap().apply { allocPixels(ImageInfo.makeN32(bitmapSize.width, bitmapSize.height, ColorAlphaType.UNPREMUL, ColorSpace.sRGB)) } }
+    val editableImage = remember { BasicEditableImage(bitmapSize) }
 
     fun handleKeyEvent(event: KeyEvent): Boolean {
         println(event.type.toString() + " " + event.key.toString())
@@ -86,9 +84,9 @@ fun ApplicationScope.AppWindow(
                                 )?.file ?: return@launch
 
                                 saveLocation = fileChosen
-                                save(bitmap, fileChosen)
+                                save(editableImage, fileChosen)
                             } else {
-                                save(bitmap, lastSaveLocation)
+                                save(editableImage, lastSaveLocation)
                             }
                         }
                     },
@@ -96,12 +94,12 @@ fun ApplicationScope.AppWindow(
                 )
             }
         }
-        App(bitmap)
+        App(editableImage)
     }
 }
 
-suspend fun save(bitmap: Bitmap, file: File) {
-    val bufferedImage = bitmap.toBufferedImage()
+suspend fun save(editableImage: EditableImage, file: File) {
+    val bufferedImage = editableImage.toBufferedImage()
 
     withContext(Dispatchers.IO) {
         ImageIO.write(bufferedImage, "png", file)
@@ -109,14 +107,14 @@ suspend fun save(bitmap: Bitmap, file: File) {
 }
 
 @Composable
-private fun App(bitmap: Bitmap) {
+private fun App(editableImage: EditableImage) {
     MaterialTheme {
-        PixelsPainter(bitmap)
+        PixelsPainter(editableImage)
     }
 }
 
 class EditorContext(
-    val bitmap: Bitmap,
+    val editableImage: EditableImage,
     val scalingFactorState: MutableFloatState = mutableFloatStateOf(10f),
     val offsetState: MutableState<Offset> = mutableStateOf(Offset.Zero),
 ) {
@@ -131,14 +129,11 @@ class EditorContext(
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun PixelsPainter(
-    bitmap: Bitmap,
+    editableImage: EditableImage,
 ) {
-    val nativeCanvas = remember { NativeCanvas(bitmap) }
+    val previeweditableImage = remember { BasicEditableImage(editableImage.size).also { it.loadFrom(editableImage) } }
 
-    val previewBitmap = remember { Bitmap().apply { allocPixels(ImageInfo.makeN32(bitmap.width, bitmap.height, ColorAlphaType.UNPREMUL, ColorSpace.sRGB)) } }
-    val previewNativeCanvas = remember { NativeCanvas(previewBitmap) }
-
-    val editorContext = remember { EditorContext(bitmap) }
+    val editorContext = remember { EditorContext(editableImage) }
 
     var framesRendered by remember { mutableStateOf(0) }
 
@@ -159,19 +154,11 @@ private fun PixelsPainter(
     val transactionsQueue = remember { ArrayDeque<PaintingTransaction>() }
     val redoQueue = remember { ArrayDeque<PaintingTransaction>() }
 
-    var currentImage by remember { mutableStateOf(Image.makeFromBitmap(bitmap)) }
-
     fun updateImage() {
-        currentImage.close()
-        currentImage = Image.makeFromBitmap(bitmap)
-        currentImage.readPixels(previewBitmap)
+        previeweditableImage.loadFrom(editableImage)
     }
 
-    val imageDrawerPaint = remember { NativePaint() }
-
     val checkeredShaderBrush = remember { CheckeredShaderBrush() }
-
-    val srcRect = remember { Rect.makeXYWH(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat()) }
 
     Row(
         Modifier
@@ -217,7 +204,7 @@ private fun PixelsPainter(
                 .pointerInput(currentBrush) {
                     with(currentBrush) {
                         setTransactionListener {
-                            it.apply(bitmap, nativeCanvas)
+                            it.apply(editableImage)
 
                             updateImage()
 
@@ -229,9 +216,9 @@ private fun PixelsPainter(
                         }
 
                         setPreviewChangeListener {
-                            currentImage.readPixels(previewBitmap)
+                            previeweditableImage.loadFrom(editableImage)
 
-                            it.preview(previewBitmap, previewNativeCanvas)
+                            it.preview(previeweditableImage)
                             framesRendered++
                         }
 
@@ -241,21 +228,27 @@ private fun PixelsPainter(
                 .onPointerEvent(PointerEventType.Scroll) {
                     val dScale = it.changes.first().scrollDelta.y * editorContext.scalingFactor * 0.1f
                     if (editorContext.scalingFactor + dScale !in 0.2f..40f) return@onPointerEvent
-                    val dSize = Offset(bitmap.width * dScale, bitmap.height * dScale)
+                    val dSize = editableImage.size * dScale
 
                     val scrollPointInImageCoordinates = (it.changes.first().position - editorContext.offset)
-                    val relativeScrollPointCoords = Offset(scrollPointInImageCoordinates.x / (bitmap.width * editorContext.scalingFactor), scrollPointInImageCoordinates.y / (bitmap.height * editorContext.scalingFactor))
+                    val relativeScrollPointCoords = Offset(
+                        scrollPointInImageCoordinates.x / (editableImage.width * editorContext.scalingFactor),
+                        scrollPointInImageCoordinates.y / (editableImage.height * editorContext.scalingFactor)
+                    )
 
                     editorContext.scalingFactor += dScale
 
-                    editorContext.offset -= Offset(dSize.x * relativeScrollPointCoords.x, dSize.y * relativeScrollPointCoords.y)
+                    editorContext.offset = Offset(
+                        x = editorContext.offset.x - dSize.width * relativeScrollPointCoords.x,
+                        y = editorContext.offset.y - dSize.height * relativeScrollPointCoords.y,
+                    )
                     framesRendered++
                     focusRequester.requestFocus()
                 }.onPointerEvent(PointerEventType.Press) {
                     if (it.button == PointerButton.Tertiary) {
                         val click = ((it.changes.first().position - editorContext.offset) / editorContext.scalingFactor).toInt()
-                        if (click.x < 0 || click.y < 0 || click.x >= bitmap.width || click.y >= bitmap.height) return@onPointerEvent
-                        colorPickerState.setColor(Color(bitmap.getColor(click.x, click.y)))
+                        if (click !in editableImage.size) return@onPointerEvent
+                        colorPickerState.setColor(Color(editableImage.getColor(click.x, click.y)))
                     }
                     focusRequester.requestFocus()
                 }
@@ -264,7 +257,7 @@ private fun PixelsPainter(
                         if (transactionsQueue.isNotEmpty()) {
                             val lastTransaction = transactionsQueue.removeLast()
 
-                            lastTransaction.revert(bitmap, nativeCanvas)
+                            lastTransaction.revert(editableImage)
                             updateImage()
 
                             redoQueue.add(lastTransaction)
@@ -277,7 +270,7 @@ private fun PixelsPainter(
                         if (redoQueue.isNotEmpty()) {
                             val lastTransaction = redoQueue.removeLast()
 
-                            lastTransaction.apply(bitmap, nativeCanvas)
+                            lastTransaction.apply(editableImage)
                             updateImage()
 
                             transactionsQueue.add(lastTransaction)
@@ -294,13 +287,13 @@ private fun PixelsPainter(
                 .drawWithCache {
                     framesRendered // TODO this is still very wierd solution. Probably the best solution will be to create my own observable wrapper for bitmap/canvas. (Just like mutable state)
 
-                    val resultSize = Size(bitmap.width * editorContext.scalingFactor, bitmap.height * editorContext.scalingFactor)
+                    val resultSize = editableImage.size * editorContext.scalingFactor
                     val offset = editorContext.offset
 
                     val dstRect = Rect.makeXYWH(offset.x, offset.y, resultSize.width, resultSize.height)
 
                     checkeredShaderBrush.setUniforms(
-                        squareSize = editorContext.scalingFactor / 2,
+                        squareSize = max(2f, editorContext.scalingFactor / 2),
                         offset = offset
                     )
 
@@ -311,16 +304,7 @@ private fun PixelsPainter(
                             size = resultSize
                         )
 
-                        Image.makeFromBitmap(previewBitmap).use { image ->
-                            drawContext.canvas.nativeCanvas.drawImageRect(
-                                image = image,
-                                src = srcRect,
-                                dst = dstRect,
-                                samplingMode = SamplingMode.DEFAULT, // FilterQuality.None
-                                paint = imageDrawerPaint,
-                                strict = true,
-                            )
-                        }
+                        previeweditableImage.render(this, dstRect)
                     }
                 }
         )

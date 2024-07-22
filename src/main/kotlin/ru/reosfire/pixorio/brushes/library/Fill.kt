@@ -4,13 +4,16 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.IntOffset
-import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Image
+import ru.reosfire.pixorio.EditableImage
 import ru.reosfire.pixorio.EditorContext
 import ru.reosfire.pixorio.brushes.AbstractBrush
 import ru.reosfire.pixorio.brushes.EmptyPreviewTransaction
 import ru.reosfire.pixorio.brushes.PaintingTransaction
+import ru.reosfire.pixorio.extensions.compose.contains
 import ru.reosfire.pixorio.extensions.compose.toInt
+import ru.reosfire.pixorio.height
+import ru.reosfire.pixorio.width
 
 @OptIn(ExperimentalComposeUiApi::class)
 class Fill(color: Color) : AbstractBrush() {
@@ -45,14 +48,14 @@ class Fill(color: Color) : AbstractBrush() {
         if (event.button != PointerButton.Primary) return
 
         val click = with (editorContext) { event.changes.first().position.toLocalCoordinates() }
-        if (click.x < 0 || click.y < 0 || click.x >= editorContext.bitmap.width || click.y >= editorContext.bitmap.height) return
+        if (click !in editorContext.editableImage.size) return
 
         emitTransaction(FillTransaction(click.toInt(), paint))
     }
 
     private fun AwaitPointerEventScope.onMove(event: PointerEvent, editorContext: EditorContext) {
         val click = with (editorContext) { event.changes.first().position.toLocalCoordinates() }
-        if (click.x < 0 || click.y < 0 || click.x >= editorContext.bitmap.width || click.y >= editorContext.bitmap.height) {
+        if (click !in editorContext.editableImage.size) {
             emitPreviewChange(EmptyPreviewTransaction)
             return
         }
@@ -67,23 +70,24 @@ class Fill(color: Color) : AbstractBrush() {
 
         private var savedState: Image? = null
 
-        override fun preview(bitmap: Bitmap, canvas: NativeCanvas) {
-            renderTo(bitmap, canvas)
+        override fun preview(editableImage: EditableImage) {
+            renderTo(editableImage)
         }
 
-        override fun apply(bitmap: Bitmap, canvas: NativeCanvas) {
-            savedState = Image.makeFromBitmap(bitmap)
+        override fun apply(editableImage: EditableImage) {
+            savedState?.close()
+            savedState = editableImage.makeSnapshot()
 
-            renderTo(bitmap, canvas)
+            renderTo(editableImage)
         }
 
-        override fun revert(bitmap: Bitmap, canvas: NativeCanvas) {
-            if (savedState == null) error("cannot revert transaction which is not applied")
-            savedState!!.readPixels(bitmap)
+        override fun revert(editableImage: EditableImage) {
+            val state = savedState ?: error("Saved state is null")
+            editableImage.loadFrom(state)
         }
 
-        private fun renderTo(bitmap: Bitmap, canvas: NativeCanvas) {
-            val startColor = bitmap.getColor(startingPoint.x, startingPoint.y)
+        private fun renderTo(editableImage: EditableImage) {
+            val startColor = editableImage.getColor(startingPoint.x, startingPoint.y)
             val paintColor = paint.color.normalizeColor()
 
             val traversQueue = ArrayDeque<IntOffset>()
@@ -91,17 +95,17 @@ class Fill(color: Color) : AbstractBrush() {
 
             while (traversQueue.isNotEmpty()) {
                 val (currentX, currentY) = traversQueue.removeFirst()
-                val currentColor = bitmap.getColor(currentX, currentY)
+                val currentColor = editableImage.getColor(currentX, currentY)
 
                 if (currentColor != startColor) continue
                 if (currentColor == paintColor) continue
 
-                canvas.drawPoint(currentX.toFloat(), currentY.toFloat(), paint)
+                editableImage.drawPoint(currentX, currentY, paint)
 
                 if (currentX > 0) traversQueue.addLast(IntOffset(currentX - 1, currentY))
-                if (currentX + 1 < bitmap.width) traversQueue.addLast(IntOffset(currentX + 1, currentY))
+                if (currentX + 1 < editableImage.width) traversQueue.addLast(IntOffset(currentX + 1, currentY))
                 if (currentY > 0) traversQueue.addLast(IntOffset(currentX, currentY - 1))
-                if (currentY + 1 < bitmap.height) traversQueue.addLast(IntOffset(currentX, currentY + 1))
+                if (currentY + 1 < editableImage.height) traversQueue.addLast(IntOffset(currentX, currentY + 1))
             }
         }
     }

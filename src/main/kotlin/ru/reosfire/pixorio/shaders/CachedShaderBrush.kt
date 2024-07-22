@@ -15,7 +15,7 @@ abstract class CachedShaderBrush(sourceCode: String, dataSize: Int): ShaderBrush
     protected val byteBuffer: ByteBuffer =
         BufferUtil.getByteBufferFromPointer(data.writableData(), dataSize).order(ByteOrder.LITTLE_ENDIAN)
 
-    private var shader = bgEffect.makeShader(data, null, null)
+    private val shader = bgEffect.makeShader(data, null, null)
 
     override fun createShader(size: Size) = shader
 

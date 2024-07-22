@@ -1,12 +1,11 @@
 package ru.reosfire.pixorio.brushes
 
-import androidx.compose.ui.graphics.NativeCanvas
-import org.jetbrains.skia.Bitmap
+import ru.reosfire.pixorio.EditableImage
 
 interface PreviewTransaction {
-    fun preview(bitmap: Bitmap, canvas: NativeCanvas)
+    fun preview(editableImage: EditableImage)
 }
 
 object EmptyPreviewTransaction : PreviewTransaction {
-    override fun preview(bitmap: Bitmap, canvas: NativeCanvas) = Unit
+    override fun preview(editableImage: EditableImage) = Unit
 }

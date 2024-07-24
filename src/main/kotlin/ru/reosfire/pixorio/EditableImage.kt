@@ -30,7 +30,7 @@ inline val EditableImage.height: Int
     get() = size.height
 
 inline val EditableImage.width: Int
-    get() = size.height
+    get() = size.width
 
 fun EditableImage.getComposeColor(x: Number, y: Number) = Color(getColor(x, y))
 

@@ -131,6 +131,8 @@ class EditorContext(
 private fun PixelsPainter(
     editableImage: EditableImage,
 ) {
+    val coroutineScope = rememberCoroutineScope()
+
     val previewEditableImage = remember { BasicEditableImage(editableImage.size).also { it.loadFrom(editableImage) } }
 
     val editorContext = remember { EditorContext(editableImage) }
@@ -203,23 +205,27 @@ private fun PixelsPainter(
                 .fillMaxSize()
                 .pointerInput(currentBrush) {
                     with(currentBrush) {
-                        setTransactionListener {
-                            it.apply(editableImage)
+                        coroutineScope.launch {
+                            applyTransactionsFlow.collect {
+                                it.apply(editableImage)
 
-                            updateImage()
+                                updateImage()
 
-                            transactionsQueue.add(it)
-                            redoQueue.clear()
+                                transactionsQueue.add(it)
+                                redoQueue.clear()
 
-                            framesRendered++
-                            if (currentColor !in usedColors) usedColors.add(currentColor)
+                                framesRendered++
+                                if (currentColor !in usedColors) usedColors.add(currentColor)
+                            }
                         }
 
-                        setPreviewChangeListener {
-                            updateImage()
+                        coroutineScope.launch {
+                            previewTransactionsFlow.collect {
+                                updateImage()
 
-                            it.preview(previewEditableImage)
-                            framesRendered++
+                                it.preview(previewEditableImage)
+                                framesRendered++
+                            }
                         }
 
                         inputEventsHandler(editorContext)

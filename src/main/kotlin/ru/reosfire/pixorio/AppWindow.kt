@@ -131,7 +131,7 @@ class EditorContext(
 private fun PixelsPainter(
     editableImage: EditableImage,
 ) {
-    val previeweditableImage = remember { BasicEditableImage(editableImage.size).also { it.loadFrom(editableImage) } }
+    val previewEditableImage = remember { BasicEditableImage(editableImage.size).also { it.loadFrom(editableImage) } }
 
     val editorContext = remember { EditorContext(editableImage) }
 
@@ -155,7 +155,7 @@ private fun PixelsPainter(
     val redoQueue = remember { ArrayDeque<PaintingTransaction>() }
 
     fun updateImage() {
-        previeweditableImage.loadFrom(editableImage)
+        previewEditableImage.loadFrom(editableImage)
     }
 
     val checkeredShaderBrush = remember { CheckeredShaderBrush() }
@@ -216,9 +216,9 @@ private fun PixelsPainter(
                         }
 
                         setPreviewChangeListener {
-                            previeweditableImage.loadFrom(editableImage)
+                            updateImage()
 
-                            it.preview(previeweditableImage)
+                            it.preview(previewEditableImage)
                             framesRendered++
                         }
 
@@ -304,7 +304,7 @@ private fun PixelsPainter(
                             size = resultSize
                         )
 
-                        previeweditableImage.render(this, dstRect)
+                        previewEditableImage.render(this, dstRect)
                     }
                 }
         )

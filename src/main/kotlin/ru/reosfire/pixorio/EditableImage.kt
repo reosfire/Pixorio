@@ -1,13 +1,10 @@
 package ru.reosfire.pixorio
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.NativeCanvas
-import androidx.compose.ui.graphics.NativePaint
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.IntSize
 import org.jetbrains.skia.*
-import org.jetbrains.skiko.toBufferedImage
+import org.jetbrains.skia.Paint
 import java.awt.image.BufferedImage
 
 interface EditableImage {
@@ -38,11 +35,17 @@ fun EditableImage.getComposeColor(x: Number, y: Number) = Color(getColor(x, y))
 class BasicEditableImage(
     override val size: IntSize,
 ) : EditableImage {
-    private val bitmap = Bitmap().apply { allocPixels(ImageInfo.makeN32(size.width, size.height, ColorAlphaType.UNPREMUL, ColorSpace.sRGB)) }
-    private val canvas = NativeCanvas(bitmap)
+    private val imageInfo = ImageInfo.makeN32(size.width, size.height, ColorAlphaType.UNPREMUL, ColorSpace.sRGB)
+
+    private val surface = Surface.makeRaster(imageInfo)
+    private val canvas = surface.canvas
+
+    private val data = Data.makeUninitialized(imageInfo.minRowBytes)
+    private val pixmap = Pixmap.make(imageInfo, data, data.size)
 
     override fun getColor(x: Number, y: Number): Int {
-        return bitmap.getColor(x.toInt(), y.toInt())
+        surface.peekPixels(pixmap)
+        return pixmap.getColor(x.toInt(), y.toInt())
     }
 
     override fun drawPoint(x: Number, y: Number, paint: Paint) {
@@ -56,30 +59,31 @@ class BasicEditableImage(
     override fun render(drawScope: DrawScope, dstRect: Rect) {
         val targetCanvas = drawScope.drawContext.canvas.nativeCanvas
 
-        Image.makeFromBitmap(bitmap).use { image ->
-            targetCanvas.drawImageRect(
-                image = image,
-                dst = dstRect,
-            )
-        }
+        targetCanvas.save()
+
+        targetCanvas.translate(dstRect.left, dstRect.top)
+        targetCanvas.scale(dstRect.width / width, dstRect.height / height)
+        surface.draw(targetCanvas, 0, 0, null)
+
+        targetCanvas.restore()
     }
 
     override fun loadFrom(other: EditableImage) {
         if (other !is BasicEditableImage) error("BasicEditableImage supports loading only from other BasicEditableImage")
 
-        Image.makeFromBitmap(other.bitmap).use { image ->
-            loadFrom(image)
-        }
+        other.surface.peekPixels(pixmap)
+        surface.writePixels(pixmap, 0, 0)
     }
 
     override fun loadFrom(snapshot: Image) {
-        snapshot.readPixels(bitmap)
+        snapshot.peekPixels(pixmap)
+        surface.writePixels(pixmap, 0, 0)
     }
 
     override fun makeSnapshot(): Image {
-        return Image.makeFromBitmap(bitmap)
+        return surface.makeImageSnapshot()
     }
     override fun toBufferedImage(): BufferedImage {
-        return bitmap.toBufferedImage()
+        return makeSnapshot().toComposeImageBitmap().toAwtImage() // TODO not the best solution
     }
 }

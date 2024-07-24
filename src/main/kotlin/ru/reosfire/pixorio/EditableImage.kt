@@ -1,10 +1,12 @@
 package ru.reosfire.pixorio
 
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.NativePaint
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.IntSize
 import org.jetbrains.skia.*
-import org.jetbrains.skia.Paint
+import ru.reosfire.pixorio.extensions.skiko.toBufferedImage
 import java.awt.image.BufferedImage
 
 interface EditableImage {
@@ -83,7 +85,8 @@ class BasicEditableImage(
     override fun makeSnapshot(): Image {
         return surface.makeImageSnapshot()
     }
+
     override fun toBufferedImage(): BufferedImage {
-        return makeSnapshot().toComposeImageBitmap().toAwtImage() // TODO not the best solution
+        return surface.toBufferedImage()
     }
 }

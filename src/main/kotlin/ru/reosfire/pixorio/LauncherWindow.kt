@@ -105,17 +105,19 @@ private fun SizeComponentInputField(
                 text = it
 
                 val parsed = it.toIntOrNull()
-                if (parsed != null) {
+                if (parsed != null && parsed in SIZE_RANGE) {
                     state.value = parsed
                     state.isCorrect = true
                 } else {
                     state.isCorrect = false
                 }
             },
+            singleLine = true,
             colors = TextFieldDefaults.textFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
     }
 }
 
-const val MAX_TEXT_LENGTH = 10
+private const val MAX_TEXT_LENGTH = 4
+private val SIZE_RANGE = 1..8192

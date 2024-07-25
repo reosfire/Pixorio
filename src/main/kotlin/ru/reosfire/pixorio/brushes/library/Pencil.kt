@@ -35,7 +35,6 @@ class Pencil(color: Color) : AbstractBrush() {
     private var currentTransaction = PencilTransaction(paint)
     private val currentPointTransaction = PencilCurrentPointTransaction(Offset.Zero, paint)
 
-    private var lastPress = Offset.Zero
     private var pressed = false
 
     override suspend fun PointerInputScope.inputEventsHandler(editorContext: EditorContext) {
@@ -60,7 +59,6 @@ class Pencil(color: Color) : AbstractBrush() {
         currentTransaction.addPoint(click)
 
         pressed = true
-        lastPress = click
 
         emitPreviewChange(currentTransaction)
     }
@@ -71,8 +69,6 @@ class Pencil(color: Color) : AbstractBrush() {
             if (click !in editorContext.editableImage.size) return
 
             currentTransaction.addPoint(click)
-
-            lastPress = click
 
             emitPreviewChange(currentTransaction)
         } else {

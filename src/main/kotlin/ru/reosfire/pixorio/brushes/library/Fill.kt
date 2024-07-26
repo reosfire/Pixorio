@@ -44,6 +44,10 @@ class Fill(color: Color) : AbstractBrush() {
         }
     }
 
+    override fun setColor(color: Color) {
+        paint.color = color.toArgb()
+    }
+
     private fun AwaitPointerEventScope.onPress(event: PointerEvent, editorContext: EditorContext) {
         if (event.button != PointerButton.Primary) return
 

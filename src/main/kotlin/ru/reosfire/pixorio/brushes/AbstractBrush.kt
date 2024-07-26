@@ -1,5 +1,6 @@
 package ru.reosfire.pixorio.brushes
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerInputScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +15,7 @@ abstract class AbstractBrush {
     val previewTransactionsFlow = MutableSharedFlow<PreviewTransaction>()
 
     abstract suspend fun PointerInputScope.inputEventsHandler(editorContext: EditorContext)
+    abstract fun setColor(color: Color)
 
     protected fun emitTransaction(transaction: PaintingTransaction) {
         scope.launch {
@@ -26,4 +28,8 @@ abstract class AbstractBrush {
             previewTransactionsFlow.emit(transaction)
         }
     }
+}
+
+abstract class ColorIndependentBrush : AbstractBrush() {
+    override fun setColor(color: Color) = Unit
 }

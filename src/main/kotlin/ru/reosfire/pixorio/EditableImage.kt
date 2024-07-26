@@ -16,6 +16,11 @@ interface EditableImage {
 
     fun drawPoint(x: Number, y: Number, paint: Paint)
     fun drawLine(x0: Number, y0: Number, x1: Number, y1: Number, paint: NativePaint)
+    fun drawImageRect(
+        image: Image,
+        src: Rect,
+        dst: Rect,
+    )
 
     fun render(drawScope: DrawScope, dstRect: Rect)
 
@@ -23,6 +28,7 @@ interface EditableImage {
     fun loadFrom(snapshot: Image)
 
     fun makeSnapshot(): Image
+    fun makeSnapshot(rect: IRect): Image?
     fun toBufferedImage(): BufferedImage
 }
 
@@ -58,6 +64,10 @@ class BasicEditableImage(
         canvas.drawLine(x0.toFloat(), y0.toFloat(), x1.toFloat(), y1.toFloat(), paint)
     }
 
+    override fun drawImageRect(image: Image, src: Rect, dst: Rect) {
+        canvas.drawImageRect(image, src, dst)
+    }
+
     override fun render(drawScope: DrawScope, dstRect: Rect) {
         val targetCanvas = drawScope.drawContext.canvas.nativeCanvas
 
@@ -84,6 +94,10 @@ class BasicEditableImage(
 
     override fun makeSnapshot(): Image {
         return surface.makeImageSnapshot()
+    }
+
+    override fun makeSnapshot(rect: IRect): Image? {
+        return surface.makeImageSnapshot(rect)
     }
 
     override fun toBufferedImage(): BufferedImage {

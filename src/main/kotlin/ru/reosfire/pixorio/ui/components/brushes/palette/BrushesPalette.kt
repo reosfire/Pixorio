@@ -8,7 +8,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -21,17 +21,16 @@ import ru.reosfire.pixorio.brushes.AbstractBrush
 data class BrushUiData(
     val name: String,
     val iconResource: String,
-    val factorize: (Color) -> AbstractBrush
+    val brush: AbstractBrush
 )
 
 @Composable
 fun BrushesPalette(
     brushes: List<BrushUiData>,
     onBrushSelect: (BrushUiData) -> Unit,
+    selectedBrush: AbstractBrush,
     modifier: Modifier = Modifier,
 ) {
-    var selectedBrush by remember(brushes) { mutableStateOf(brushes.first()) } // TODO hoist it
-
     LazyVerticalGrid(
         columns = GridCells.FixedSize(size = 28.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -39,13 +38,13 @@ fun BrushesPalette(
         modifier = modifier.padding(10.dp)
     ) {
         items(brushes.size) { index ->
-            val brush = brushes[index]
+            val brushUi = brushes[index]
+            println("${brushUi.brush} == $selectedBrush    :    ${brushUi.brush == selectedBrush}")
             BrushItem(
-                brush = brush,
-                isSelected = brush == selectedBrush,
+                brush = brushUi,
+                isSelected = brushUi.brush == selectedBrush,
                 onClick = {
-                    onBrushSelect(brush)
-                    selectedBrush = brush
+                    onBrushSelect(brushUi)
                 },
             )
         }

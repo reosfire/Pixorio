@@ -14,11 +14,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
@@ -29,16 +32,19 @@ import io.github.vinceglb.filekit.core.pickFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jetbrains.skia.IRect
+import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
-import ru.reosfire.pixorio.brushes.AbstractBrush
 import ru.reosfire.pixorio.brushes.PaintingTransaction
 import ru.reosfire.pixorio.brushes.library.Fill
+import ru.reosfire.pixorio.brushes.library.ImageBrush
 import ru.reosfire.pixorio.brushes.library.Pencil
 import ru.reosfire.pixorio.extensions.compose.contains
 import ru.reosfire.pixorio.extensions.compose.hsvHue
 import ru.reosfire.pixorio.extensions.compose.times
 import ru.reosfire.pixorio.extensions.compose.toInt
 import ru.reosfire.pixorio.shaders.CheckeredShaderBrush
+import ru.reosfire.pixorio.ui.components.PastePalette
 import ru.reosfire.pixorio.ui.components.brushes.palette.BrushUiData
 import ru.reosfire.pixorio.ui.components.brushes.palette.BrushesPalette
 import ru.reosfire.pixorio.ui.components.colorpalette.ColorsPalette
@@ -47,6 +53,7 @@ import ru.reosfire.pixorio.ui.components.colorpicker.rememberColorPickerState
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.math.max
+import kotlin.math.min
 
 @Composable
 fun ApplicationScope.AppWindow(
@@ -142,9 +149,26 @@ private fun PixelsPainter(
     val colorPickerState = rememberColorPickerState(Color.White)
     val currentColor by colorPickerState.colorState
 
-    var brushFactory by remember { mutableStateOf<(Color) -> AbstractBrush>({ Pencil(it) }) }
+    val brushesList = remember {
+        listOf(
+            BrushUiData(
+                name = "Pencil",
+                iconResource = "icons/brushes/pencil.png",
+                brush = Pencil(currentColor)
+            ),
+            BrushUiData(
+                name = "Fill",
+                iconResource = "icons/brushes/bucket.png",
+                brush = Fill(currentColor)
+            ),
+        )
+    }
 
-    val currentBrush by remember(currentColor, brushFactory) { mutableStateOf(brushFactory(currentColor)) }
+    var currentBrush by remember { mutableStateOf(brushesList.first().brush) }
+
+    LaunchedEffect(currentColor) {
+        currentBrush.setColor(currentColor)
+    }
 
     val usedColors = remember { mutableStateListOf<Color>() }
 
@@ -160,7 +184,23 @@ private fun PixelsPainter(
         previewEditableImage.loadFrom(editableImage)
     }
 
+    val clips = remember { mutableStateListOf<ImageBrush>() }
+
     val checkeredShaderBrush = remember { CheckeredShaderBrush() }
+
+    var currentCursorPosition by remember { mutableStateOf(IntOffset.Zero) }
+    var clipStart by remember { mutableStateOf<IntOffset?>(null) }
+
+    fun getClipRect() = clipStart?.let {
+        val minX = min(it.x, currentCursorPosition.x)
+        val maxX = max(it.x, currentCursorPosition.x)
+        val minY = min(it.y, currentCursorPosition.y)
+        val maxY = max(it.y, currentCursorPosition.y)
+
+        IRect.makeLTRB(minX, minY, maxX + 1, maxY + 1)
+    }
+
+    val selectionPaint = remember { Paint().apply { color = Color.Blue.copy(alpha = 0.4f).toArgb() } }
 
     Row(
         Modifier
@@ -179,21 +219,18 @@ private fun PixelsPainter(
             )
 
             BrushesPalette(
-                brushes = listOf(
-                    BrushUiData(
-                        name = "Pencil",
-                        iconResource = "icons/brushes/pencil.png",
-                        factorize = ::Pencil
-                    ),
-                    BrushUiData(
-                        name = "Fill",
-                        iconResource = "icons/brushes/bucket.png",
-                        factorize = ::Fill
-                    )
-                ),
+                brushes = brushesList,
                 onBrushSelect = {
-                    brushFactory = it.factorize
+                    currentBrush = it.brush
                 },
+                selectedBrush = currentBrush,
+                modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
+            )
+
+            PastePalette(
+                clips,
+                onSelect = { currentBrush = it },
+                selectedBrush = currentBrush,
                 modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
             )
         }
@@ -257,8 +294,9 @@ private fun PixelsPainter(
                         colorPickerState.setColor(Color(editableImage.getColor(click.x, click.y)))
                     }
                     focusRequester.requestFocus()
-                }
-                .onKeyEvent { event ->
+                }.onPointerEvent(PointerEventType.Move) {
+                    currentCursorPosition = with(editorContext) { it.changes.first().position.toLocalCoordinates() }.toInt()
+                }.onKeyEvent { event ->
                     if (event.key == Key.Z && event.isCtrlPressed && event.type == KeyEventType.KeyDown) {
                         if (transactionsQueue.isNotEmpty()) {
                             val lastTransaction = transactionsQueue.removeLast()
@@ -286,6 +324,24 @@ private fun PixelsPainter(
                         }
                     }
 
+                    if (event.key == Key.F && event.type == KeyEventType.KeyDown) {
+                        if (clipStart == null && currentCursorPosition in editableImage.size) {
+                            clipStart = currentCursorPosition
+                        }
+                    }
+
+                    if (event.key == Key.F && event.type == KeyEventType.KeyUp) {
+                        if (currentCursorPosition in editableImage.size) {
+                            getClipRect()?.let { clipRect ->
+                                editableImage.makeSnapshot(clipRect)?.let { rectSnapshot ->
+                                    clips.add(ImageBrush(rectSnapshot))
+                                }
+                            }
+                        }
+
+                        clipStart = null
+                    }
+
                     false
                 }
                 .focusRequester(focusRequester)
@@ -311,6 +367,18 @@ private fun PixelsPainter(
                         )
 
                         previewEditableImage.render(this, dstRect)
+
+                        getClipRect()?.toRect()?.let { clipRect ->
+                            val nativeCanvas = drawContext.canvas.nativeCanvas
+
+                            nativeCanvas.save()
+
+                            nativeCanvas.translate(offset.x, offset.y)
+                            nativeCanvas.scale(editorContext.scalingFactor, editorContext.scalingFactor)
+                            nativeCanvas.drawRect(clipRect, selectionPaint)
+
+                            nativeCanvas.restore()
+                        }
                     }
                 }
         )

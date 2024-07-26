@@ -2,38 +2,21 @@ package ru.reosfire.pixorio.brushes.library
 
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.pointer.*
-import androidx.compose.ui.unit.IntOffset
 import org.jetbrains.skia.Image
+import org.jetbrains.skia.Rect
 import ru.reosfire.pixorio.EditableImage
 import ru.reosfire.pixorio.EditorContext
-import ru.reosfire.pixorio.brushes.AbstractBrush
+import ru.reosfire.pixorio.brushes.ColorIndependentBrush
 import ru.reosfire.pixorio.brushes.EmptyPreviewTransaction
 import ru.reosfire.pixorio.brushes.PaintingTransaction
-import ru.reosfire.pixorio.brushes.PreviewTransaction
-import ru.reosfire.pixorio.extensions.compose.contains
-import ru.reosfire.pixorio.extensions.compose.toInt
+import ru.reosfire.pixorio.height
+import ru.reosfire.pixorio.width
 
 @OptIn(ExperimentalComposeUiApi::class)
-class Pencil(color: Color) : AbstractBrush() {
+class ImageBrush(val image: Image) : ColorIndependentBrush() {
 
-    private val paint = Paint().apply {
-        this.color = color
-        strokeWidth = 1f
-        isAntiAlias = false
-        filterQuality = FilterQuality.None
-        shader = null
-        blendMode = BlendMode.Src
-        strokeCap = StrokeCap.Square
-        strokeJoin = StrokeJoin.Miter
-        alpha = color.alpha
-        style = PaintingStyle.Stroke
-        colorFilter = null
-    }.asFrameworkPaint()
-
-    private var currentTransaction = PencilTransaction(paint)
-    private val currentPointTransaction = PencilCurrentPointTransaction(Offset.Zero, paint)
+    private var currentTransaction = ImageTransaction(image)
 
     private var pressed = false
 
@@ -45,22 +28,19 @@ class Pencil(color: Color) : AbstractBrush() {
                     PointerEventType.Press -> onPress(event, editorContext)
                     PointerEventType.Move -> onMove(event, editorContext)
                     PointerEventType.Release -> onRelease(event, editorContext)
+                    PointerEventType.Scroll -> onScroll(event, editorContext)
                 }
             }
         }
-    }
-
-    override fun setColor(color: Color) {
-        paint.color = color.toArgb()
     }
 
     private fun AwaitPointerEventScope.onPress(event: PointerEvent, editorContext: EditorContext) {
         if (event.button != PointerButton.Primary) return
 
         val click = with (editorContext) { event.changes.first().position.toLocalCoordinates() }
-        if (click !in editorContext.editableImage.size) return
+        if (click.x < 0 || click.y < 0 || click.x >= editorContext.editableImage.width || click.y >= editorContext.editableImage.height) return
 
-        currentTransaction.addPoint(click)
+        currentTransaction.point = click
 
         pressed = true
 
@@ -70,20 +50,20 @@ class Pencil(color: Color) : AbstractBrush() {
     private fun AwaitPointerEventScope.onMove(event: PointerEvent, editorContext: EditorContext) {
         if (pressed) {
             val click = with (editorContext) { event.changes.first().position.toLocalCoordinates() }
-            if (click !in editorContext.editableImage.size) return
+            if (click.x < 0 || click.y < 0 || click.x >= editorContext.editableImage.width || click.y >= editorContext.editableImage.height) return
 
-            currentTransaction.addPoint(click)
+            currentTransaction.point = click
 
             emitPreviewChange(currentTransaction)
         } else {
             val click = with (editorContext) { event.changes.first().position.toLocalCoordinates() }
-            if (click !in editorContext.editableImage.size) {
+            if (click.x < 0 || click.y < 0 || click.x >= editorContext.editableImage.width || click.y >= editorContext.editableImage.height) {
                 emitPreviewChange(EmptyPreviewTransaction)
                 return
             }
 
-            currentPointTransaction.point = click
-            emitPreviewChange(currentPointTransaction)
+            currentTransaction.point = click
+            emitPreviewChange(currentTransaction)
         }
     }
 
@@ -91,23 +71,21 @@ class Pencil(color: Color) : AbstractBrush() {
         if (event.button != PointerButton.Primary) return
 
         emitTransaction(currentTransaction)
-        currentTransaction = PencilTransaction(paint)
+        currentTransaction = ImageTransaction(image)
         pressed = false
     }
 
-    class PencilCurrentPointTransaction(
-        var point: Offset,
-        private val paint: NativePaint,
-    ) : PreviewTransaction {
+    private fun AwaitPointerEventScope.onScroll(event: PointerEvent, editorContext: EditorContext) {
+        currentTransaction.rotation += event.changes.first().scrollDelta.y.toInt()
 
-        override fun preview(editableImage: EditableImage) {
-            editableImage.drawPoint(point.x.toInt(), point.y.toInt(), paint)
-        }
+        emitPreviewChange(currentTransaction)
+        event.changes.first().consume()
     }
 
-    class PencilTransaction(
-        private val paint: NativePaint,
-        private val points: MutableList<IntOffset> = mutableListOf(),
+    class ImageTransaction(
+        private val image: Image,
+        var point: Offset = Offset.Zero,
+        var rotation: Int = 0,
     ) : PaintingTransaction {
 
         private var savedState: Image? = null
@@ -128,28 +106,12 @@ class Pencil(color: Color) : AbstractBrush() {
             editableImage.loadFrom(state)
         }
 
-        fun addPoint(point: Offset) {
-            val point = point.toInt()
-            if (points.isEmpty() || points.last() != point) points.add(point)
-        }
-
         private fun renderTo(editableImage: EditableImage) {
-            if (points.isEmpty()) return
-            if (points.size == 1) {
-                val point = points.first()
-                editableImage.drawPoint(point.x, point.y, paint)
-            }
-            for (i in 1..<points.size) {
-                val prevPoint = points[i - 1]
-                val currentPoint = points[i]
-                editableImage.drawLine(
-                    prevPoint.x,
-                    prevPoint.y,
-                    currentPoint.x,
-                    currentPoint.y,
-                    paint,
-                )
-            }
+            editableImage.drawImageRect(
+                image = image,
+                src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
+                dst = Rect.makeXYWH(point.x.toInt().toFloat(), point.y.toInt().toFloat(), image.width.toFloat(), image.height.toFloat()),
+            )
         }
     }
 }

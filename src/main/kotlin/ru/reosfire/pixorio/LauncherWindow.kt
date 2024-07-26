@@ -8,7 +8,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -24,7 +23,7 @@ fun ApplicationScope.LauncherWindow(
     Window(
         state = rememberWindowState(position = WindowPosition.Aligned(Alignment.Center)),
         onCloseRequest = ::exitApplication,
-        title = "Pixorio",
+        title = APP_NAME,
     ) {
         val widthState = remember { SizeComponentInputFieldState(64) }
         val heightState = remember { SizeComponentInputFieldState(64) }
@@ -37,26 +36,37 @@ fun ApplicationScope.LauncherWindow(
             derivedStateOf { widthState.isCorrect && heightState.isCorrect }
         }
 
-        MaterialTheme {
-            Box(Modifier.fillMaxSize()) {
+        MainTheme {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colors.background)) {
                 Column(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color.Gray)
+                        .background(MaterialTheme.colors.surface)
                         .padding(8.dp)
                         .requiredWidth(IntrinsicSize.Max)
                 ) {
-                    SizeComponentInputField(
-                        label = "Width: ",
-                        state = widthState,
-                        modifier = Modifier
-                    )
-                    SizeComponentInputField(
-                        label = "Height: ",
-                        state = heightState,
-                        modifier = Modifier
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier,
+                    ) {
+                        Text("Width: ", color = MaterialTheme.colors.onSurface)
+                        SizeTextField(
+                            state = widthState,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp).fillMaxWidth())
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier,
+                    ) {
+                        Text("Height: ", color = MaterialTheme.colors.onSurface)
+                        SizeTextField(
+                            state = heightState,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                     Button(
                         onClick = {
                             if (correct) {
@@ -85,38 +95,31 @@ private class SizeComponentInputFieldState(
 }
 
 @Composable
-private fun SizeComponentInputField(
-    label: String,
+private fun SizeTextField(
     state: SizeComponentInputFieldState,
     modifier: Modifier = Modifier,
 ) {
     var text by remember(state) { mutableStateOf(state.value.toString()) }
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier,
-    ) {
-        Text(label)
-        TextField(
-            value = text,
-            isError = !state.isCorrect,
-            onValueChange = {
-                if (it.length > MAX_TEXT_LENGTH) return@TextField
-                text = it
+    TextField(
+        value = text,
+        isError = !state.isCorrect,
+        onValueChange = {
+            if (it.length > MAX_TEXT_LENGTH) return@TextField
+            text = it
 
-                val parsed = it.toIntOrNull()
-                if (parsed != null && parsed in SIZE_RANGE) {
-                    state.value = parsed
-                    state.isCorrect = true
-                } else {
-                    state.isCorrect = false
-                }
-            },
-            singleLine = true,
-            colors = TextFieldDefaults.textFieldColors(),
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
+            val parsed = it.toIntOrNull()
+            if (parsed != null && parsed in SIZE_RANGE) {
+                state.value = parsed
+                state.isCorrect = true
+            } else {
+                state.isCorrect = false
+            }
+        },
+        singleLine = true,
+        colors = TextFieldDefaults.textFieldColors(textColor = MaterialTheme.colors.onSurface),
+        modifier = modifier
+    )
 }
 
 private const val MAX_TEXT_LENGTH = 4

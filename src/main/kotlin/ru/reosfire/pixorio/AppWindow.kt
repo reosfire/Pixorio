@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -73,50 +72,49 @@ fun ApplicationScope.AppWindow(
 
     Window(
         onCloseRequest = onCloseRequest,
-        title = "Pixorio",
+        title = APP_NAME,
         onKeyEvent = ::handleKeyEvent,
         state = rememberWindowState(WindowPlacement.Maximized),
     ) {
-        MenuBar {
-            Menu("File", mnemonic = 'F') {
-                Item(
-                    text = "Save",
-                    onClick = {
-                        coroutineScope.launch {
-                            val lastSaveLocation = saveLocation
-                            if (lastSaveLocation == null) {
-                                val fileChosen = FileKit.pickFile(
-                                    type = PickerType.Image,
-                                    title = "Pixorio",
-                                )?.file ?: return@launch
+        MainTheme {
+            MenuBar {
+                Menu("File", mnemonic = 'F') {
+                    Item(
+                        text = "Save",
+                        onClick = {
+                            coroutineScope.launch {
+                                val lastSaveLocation = saveLocation
+                                if (lastSaveLocation == null) {
+                                    val fileChosen = FileKit.pickFile(
+                                        type = PickerType.Image,
+                                        title = APP_NAME,
+                                    )?.file ?: return@launch
 
-                                saveLocation = fileChosen
-                                save(editableImage, fileChosen)
-                            } else {
-                                save(editableImage, lastSaveLocation)
+                                    saveLocation = fileChosen
+                                    save(editableImage, fileChosen)
+                                } else {
+                                    save(editableImage, lastSaveLocation)
+                                }
                             }
-                        }
-                    },
-                    shortcut = KeyShortcut(Key.S, ctrl = true)
-                )
+                        },
+                        shortcut = KeyShortcut(Key.S, ctrl = true)
+                    )
+                }
             }
+            PixelsPainter(editableImage)
         }
-        App(editableImage)
     }
 }
 
 suspend fun save(editableImage: EditableImage, file: File) {
     val bufferedImage = editableImage.toBufferedImage()
 
-    withContext(Dispatchers.IO) {
-        ImageIO.write(bufferedImage, "png", file)
-    }
-}
+    val writerFormatNames = ImageIO.getWriterFormatNames()
+    val extension = file.extension.takeUnless { it !in writerFormatNames } ?: "png" // empty extension is also checked here
 
-@Composable
-private fun App(editableImage: EditableImage) {
-    MaterialTheme {
-        PixelsPainter(editableImage)
+    val extendedFile = File(file.path + "." + extension)
+    withContext(Dispatchers.IO) {
+        ImageIO.write(bufferedImage, extension, file)
     }
 }
 

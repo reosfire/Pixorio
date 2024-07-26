@@ -166,7 +166,7 @@ private fun PixelsPainter(
 
     var currentBrush by remember { mutableStateOf(brushesList.first().brush) }
 
-    LaunchedEffect(currentColor) {
+    LaunchedEffect(currentColor, currentBrush) {
         currentBrush.setColor(currentColor)
     }
 

@@ -291,7 +291,7 @@ private fun PixelsPainter(
                     if (it.button == PointerButton.Tertiary) {
                         val click = with(editorContext) { it.changes.first().position.toLocalCoordinates() }.toInt()
                         if (click !in editableImage.size) return@onPointerEvent
-                        colorPickerState.setColor(Color(editableImage.getColor(click.x, click.y)))
+                        colorPickerState.setColor(editableImage.getComposeColor(click.x, click.y))
                     }
                     focusRequester.requestFocus()
                 }.onPointerEvent(PointerEventType.Move) {

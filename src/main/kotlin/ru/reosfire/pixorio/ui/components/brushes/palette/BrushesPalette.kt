@@ -39,7 +39,6 @@ fun BrushesPalette(
     ) {
         items(brushes.size) { index ->
             val brushUi = brushes[index]
-            println("${brushUi.brush} == $selectedBrush    :    ${brushUi.brush == selectedBrush}")
             BrushItem(
                 brush = brushUi,
                 isSelected = brushUi.brush == selectedBrush,

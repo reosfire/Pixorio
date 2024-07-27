@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -12,7 +13,10 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.NativeCanvas
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.*
@@ -200,11 +204,21 @@ private fun PixelsPainter(
 
     val selectionPaint = remember { Paint().apply { color = Color.Blue.copy(alpha = 0.4f).toArgb() } }
 
+    val borderColor = MaterialTheme.colors.onBackground
+
     Row(
         Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colors.background)
     ) {
-        Column(Modifier.fillMaxHeight().border(1.dp, Color.White).background(Color.Gray.copy(alpha = 0.7f)).align(Alignment.Top).zIndex(2f)) {
+        Column(
+            Modifier
+                .fillMaxHeight()
+                .border(1.dp, Color.White)
+                .background(Color.Gray.copy(alpha = 0.7f))
+                .align(Alignment.Top)
+                .zIndex(2f)
+        ) {
             ColorPicker(
                 state = colorPickerState,
                 modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
@@ -359,6 +373,12 @@ private fun PixelsPainter(
 
                     onDrawBehind {
                         drawRect(
+                            color = borderColor,
+                            topLeft = Offset(offset.x - BORDER_SIZE, offset.y - BORDER_SIZE),
+                            size = Size(resultSize.width + BORDER_SIZE * 2, resultSize.height + BORDER_SIZE * 2),
+                        )
+
+                        drawRect(
                             brush = checkeredShaderBrush,
                             topLeft = offset,
                             size = resultSize
@@ -367,18 +387,29 @@ private fun PixelsPainter(
                         previewEditableImage.render(this, dstRect)
 
                         getClipRect()?.toRect()?.let { clipRect ->
-                            val nativeCanvas = drawContext.canvas.nativeCanvas
-
-                            nativeCanvas.save()
-
-                            nativeCanvas.translate(offset.x, offset.y)
-                            nativeCanvas.scale(editorContext.scalingFactor, editorContext.scalingFactor)
-                            nativeCanvas.drawRect(clipRect, selectionPaint)
-
-                            nativeCanvas.restore()
+                            useNativeCanvas {
+                                translate(offset.x, offset.y)
+                                scale(editorContext.scalingFactor, editorContext.scalingFactor)
+                                drawRect(clipRect, selectionPaint)
+                            }
                         }
                     }
                 }
         )
     }
 }
+
+inline fun DrawScope.withNativeCanvas(block: NativeCanvas.() -> Unit) {
+    block(drawContext.canvas.nativeCanvas)
+}
+
+inline fun DrawScope.useNativeCanvas(block: NativeCanvas.() -> Unit) {
+    val nativeCanvas = drawContext.canvas.nativeCanvas
+    nativeCanvas.save()
+
+    block(nativeCanvas)
+
+    nativeCanvas.restore()
+}
+
+private const val BORDER_SIZE = 1

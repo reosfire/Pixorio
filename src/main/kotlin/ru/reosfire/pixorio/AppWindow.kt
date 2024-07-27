@@ -67,17 +67,11 @@ fun ApplicationScope.AppWindow(
 
     val editableImage = remember { BasicEditableImage(bitmapSize) }
 
-    fun handleKeyEvent(event: KeyEvent): Boolean {
-        println(event.type.toString() + " " + event.key.toString())
-        return false
-    }
-
     var saveLocation by remember { mutableStateOf<File?>(null) }
 
     Window(
         onCloseRequest = onCloseRequest,
         title = APP_NAME,
-        onKeyEvent = ::handleKeyEvent,
         state = rememberWindowState(WindowPlacement.Maximized),
     ) {
         MainTheme {
@@ -210,6 +204,55 @@ private fun PixelsPainter(
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colors.background)
+            .onKeyEvent { event ->
+                if (event.key == Key.Z && event.isCtrlPressed && event.type == KeyEventType.KeyDown) {
+                    if (transactionsQueue.isNotEmpty()) {
+                        val lastTransaction = transactionsQueue.removeLast()
+
+                        lastTransaction.revert(editableImage)
+                        updateImage()
+
+                        redoQueue.add(lastTransaction)
+
+                        framesRendered++
+                        return@onKeyEvent true
+                    }
+                }
+                if (event.key == Key.Y && event.isCtrlPressed && event.type == KeyEventType.KeyDown) {
+                    if (redoQueue.isNotEmpty()) {
+                        val lastTransaction = redoQueue.removeLast()
+
+                        lastTransaction.apply(editableImage)
+                        updateImage()
+
+                        transactionsQueue.add(lastTransaction)
+
+                        framesRendered++
+                        return@onKeyEvent true
+                    }
+                }
+
+                if (event.key == Key.F && event.type == KeyEventType.KeyDown) {
+                    if (clipStart == null && currentCursorPosition in editableImage.size) {
+                        focusRequester.requestFocus()
+                        clipStart = currentCursorPosition
+                    }
+                }
+
+                if (event.key == Key.F && event.type == KeyEventType.KeyUp) {
+                    if (currentCursorPosition in editableImage.size) {
+                        getClipRect()?.let { clipRect ->
+                            editableImage.makeSnapshot(clipRect)?.let { rectSnapshot ->
+                                clips.add(ImageBrush(rectSnapshot))
+                            }
+                        }
+                    }
+
+                    clipStart = null
+                }
+
+                false
+            }
     ) {
         Column(
             Modifier
@@ -308,53 +351,6 @@ private fun PixelsPainter(
                     focusRequester.requestFocus()
                 }.onPointerEvent(PointerEventType.Move) {
                     currentCursorPosition = with(editorContext) { it.changes.first().position.toLocalCoordinates() }.toInt()
-                }.onKeyEvent { event ->
-                    if (event.key == Key.Z && event.isCtrlPressed && event.type == KeyEventType.KeyDown) {
-                        if (transactionsQueue.isNotEmpty()) {
-                            val lastTransaction = transactionsQueue.removeLast()
-
-                            lastTransaction.revert(editableImage)
-                            updateImage()
-
-                            redoQueue.add(lastTransaction)
-
-                            framesRendered++
-                            return@onKeyEvent true
-                        }
-                    }
-                    if (event.key == Key.Y && event.isCtrlPressed && event.type == KeyEventType.KeyDown) {
-                        if (redoQueue.isNotEmpty()) {
-                            val lastTransaction = redoQueue.removeLast()
-
-                            lastTransaction.apply(editableImage)
-                            updateImage()
-
-                            transactionsQueue.add(lastTransaction)
-
-                            framesRendered++
-                            return@onKeyEvent true
-                        }
-                    }
-
-                    if (event.key == Key.F && event.type == KeyEventType.KeyDown) {
-                        if (clipStart == null && currentCursorPosition in editableImage.size) {
-                            clipStart = currentCursorPosition
-                        }
-                    }
-
-                    if (event.key == Key.F && event.type == KeyEventType.KeyUp) {
-                        if (currentCursorPosition in editableImage.size) {
-                            getClipRect()?.let { clipRect ->
-                                editableImage.makeSnapshot(clipRect)?.let { rectSnapshot ->
-                                    clips.add(ImageBrush(rectSnapshot))
-                                }
-                            }
-                        }
-
-                        clipStart = null
-                    }
-
-                    false
                 }
                 .focusRequester(focusRequester)
                 .focusable()

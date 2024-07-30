@@ -3,12 +3,67 @@ name: Build
 on: [ push ]
 
 jobs:
-  build:
+  buildMsi:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v4
+    - name: Setup Java17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: 17
+    - name: Setup Gradle8.5
+      uses: gradle/actions/setup-gradle@v3
+      with:
+       gradle-version: 8.5
+    - name: Build
+      run: ./gradlew packageReleaseMsi
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: MSI build
+        path: build\compose\binaries\main-release\msi\
+  buildDmg:
+    runs-on: macos-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v4
+    - name: Setup Java17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: 17
+    - name: Setup Gradle8.5
+      uses: gradle/actions/setup-gradle@v3
+      with:
+       gradle-version: 8.5
+    - name: Build
+      run: ./gradlew packageReleaseDmg
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: DMG build
+        path: build/compose/binaries/main-release/dmg/
+  buildDeb:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
-    - name: Setup Gradle
+    - name: Setup Java17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: 17
+    - name: Setup Gradle8.5
       uses: gradle/actions/setup-gradle@v3
-    - name: Build deb
+      with:
+       gradle-version: 8.5
+    - name: Build
       run: ./gradlew packageReleaseDeb
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: DEB build
+        path: build/compose/binaries/main-release/deb/
+

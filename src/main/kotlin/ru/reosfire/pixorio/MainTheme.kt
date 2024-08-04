@@ -8,17 +8,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 fun appDarkColors() = darkColors(
-    primary = Color(0xFFCEC8D2),
+    primary = Color(0xFFFFFFFF),
 //    primaryVariant = Color.Black,
 //    secondary = Color.Black,
 //    secondaryVariant = Color.Black,
-//    background = Color.Black,
-    surface = Color(0xFF252025),
+    background = Color(0xFF000000),
+    surface = Color(0xFF555555),
 //    error = Color.Black,
-    onPrimary = Color(0xFF353137),
+    onPrimary = Color(0xFF000000),
 //    onSecondary = Color.Black,
-//    onBackground = Color.Black,
-    onSurface = Color(0xFFCEC8D2),
+    onBackground = Color(0xFFFFFFFF),
+    onSurface = Color(0xFFFFFFFF),
 //    onError = Color.Black,
 )
 

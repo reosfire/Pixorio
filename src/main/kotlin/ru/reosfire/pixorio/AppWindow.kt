@@ -63,11 +63,17 @@ fun ApplicationScope.AppWindow(
 
     var saveLocation by remember { mutableStateOf<File?>(null) }
 
+    var filePickerShown by remember { mutableStateOf(true) }
+
     Window(
         onCloseRequest = onCloseRequest,
         title = APP_NAME,
         state = rememberWindowState(WindowPlacement.Maximized),
     ) {
+        if (filePickerShown) {
+            FilePickerDialog(onCloseRequest = { filePickerShown = false })
+        }
+
         MainTheme {
             MenuBar {
                 Menu("File", mnemonic = 'F') {
@@ -77,6 +83,8 @@ fun ApplicationScope.AppWindow(
                             coroutineScope.launch {
                                 val lastSaveLocation = saveLocation
                                 if (lastSaveLocation == null) {
+                                    filePickerShown = true
+
                                     val fileChosen = FileKit.pickFile(
                                         type = PickerType.Image,
                                         title = APP_NAME,
@@ -93,6 +101,7 @@ fun ApplicationScope.AppWindow(
                     )
                 }
             }
+
             PixelsPainter(editableImage)
         }
     }

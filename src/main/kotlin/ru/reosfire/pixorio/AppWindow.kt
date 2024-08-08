@@ -134,8 +134,6 @@ class EditorContext(
 private fun PixelsPainter(
     editableImage: EditableImage,
 ) {
-    val coroutineScope = rememberCoroutineScope()
-
     val previewEditableImage = remember { BasicEditableImage(editableImage.size).also { it.loadFrom(editableImage) } }
 
     val editorContext = remember { EditorContext(editableImage) }
@@ -199,6 +197,29 @@ private fun PixelsPainter(
     val selectionPaint = remember { Paint().apply { color = Color.Blue.copy(alpha = 0.4f).toArgb() } }
 
     val borderColor = MaterialTheme.colors.onBackground
+
+    LaunchedEffect(currentBrush) {
+        currentBrush.applyTransactionsFlow.collect {
+            it.apply(editableImage)
+
+            updateImage()
+
+            transactionsQueue.add(it)
+            redoQueue.clear()
+
+            framesRendered++
+            if (currentColor !in usedColors) usedColors.add(currentColor)
+        }
+    }
+
+    LaunchedEffect(currentBrush) {
+        currentBrush.previewTransactionsFlow.collect {
+            updateImage()
+
+            it.preview(previewEditableImage)
+            framesRendered++
+        }
+    }
 
     Row(
         Modifier
@@ -297,29 +318,6 @@ private fun PixelsPainter(
                 .fillMaxSize()
                 .pointerInput(currentBrush) {
                     with(currentBrush) {
-                        coroutineScope.launch {
-                            applyTransactionsFlow.collect {
-                                it.apply(editableImage)
-
-                                updateImage()
-
-                                transactionsQueue.add(it)
-                                redoQueue.clear()
-
-                                framesRendered++
-                                if (currentColor !in usedColors) usedColors.add(currentColor)
-                            }
-                        }
-
-                        coroutineScope.launch {
-                            previewTransactionsFlow.collect {
-                                updateImage()
-
-                                it.preview(previewEditableImage)
-                                framesRendered++
-                            }
-                        }
-
                         inputEventsHandler(editorContext)
                     }
                 }

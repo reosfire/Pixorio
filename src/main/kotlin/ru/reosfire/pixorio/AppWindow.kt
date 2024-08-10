@@ -138,7 +138,7 @@ private fun PixelsPainter(
 
     val editorContext = remember { EditorContext(editableImage) }
 
-    var framesRendered by remember { mutableStateOf(0) }
+    var framesRendered by remember { mutableIntStateOf(0) }
 
     val colorPickerState = rememberColorPickerState(Color.White)
     val currentColor by colorPickerState.colorState
@@ -353,8 +353,6 @@ private fun PixelsPainter(
                 .focusRequester(focusRequester)
                 .focusable()
                 .drawWithCache {
-                    framesRendered // TODO this is still very wierd solution. Probably the best solution will be to create my own observable wrapper for bitmap/canvas. (Just like mutable state)
-
                     val resultSize = editableImage.size * editorContext.scalingFactor
                     val offset = editorContext.offset
 
@@ -366,6 +364,8 @@ private fun PixelsPainter(
                     )
 
                     onDrawBehind {
+                        framesRendered // TODO: ...
+
                         drawRect(
                             color = borderColor,
                             topLeft = Offset(offset.x - BORDER_SIZE, offset.y - BORDER_SIZE),

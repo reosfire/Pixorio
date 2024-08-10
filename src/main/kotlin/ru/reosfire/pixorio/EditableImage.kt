@@ -3,9 +3,9 @@ package ru.reosfire.pixorio
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.NativePaint
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.IntSize
 import org.jetbrains.skia.*
+import ru.reosfire.pixorio.extensions.compose.useNativeCanvas
 import ru.reosfire.pixorio.extensions.skiko.toBufferedImage
 import java.awt.image.BufferedImage
 
@@ -69,15 +69,11 @@ class BasicEditableImage(
     }
 
     override fun render(drawScope: DrawScope, dstRect: Rect) {
-        val targetCanvas = drawScope.drawContext.canvas.nativeCanvas
-
-        targetCanvas.save()
-
-        targetCanvas.translate(dstRect.left, dstRect.top)
-        targetCanvas.scale(dstRect.width / width, dstRect.height / height)
-        surface.draw(targetCanvas, 0, 0, null)
-
-        targetCanvas.restore()
+        drawScope.useNativeCanvas {
+            translate(dstRect.left, dstRect.top)
+            scale(dstRect.width / width, dstRect.height / height)
+            surface.draw(this, 0, 0, null)
+        }
     }
 
     override fun loadFrom(other: EditableImage) {

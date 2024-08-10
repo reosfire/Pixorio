@@ -15,9 +15,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.NativeCanvas
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.PointerButton
@@ -42,10 +39,7 @@ import ru.reosfire.pixorio.brushes.PaintingTransaction
 import ru.reosfire.pixorio.brushes.library.Fill
 import ru.reosfire.pixorio.brushes.library.ImageBrush
 import ru.reosfire.pixorio.brushes.library.Pencil
-import ru.reosfire.pixorio.extensions.compose.contains
-import ru.reosfire.pixorio.extensions.compose.hsvHue
-import ru.reosfire.pixorio.extensions.compose.times
-import ru.reosfire.pixorio.extensions.compose.toInt
+import ru.reosfire.pixorio.extensions.compose.*
 import ru.reosfire.pixorio.shaders.CheckeredShaderBrush
 import ru.reosfire.pixorio.ui.components.PastePalette
 import ru.reosfire.pixorio.ui.components.brushes.palette.BrushUiData
@@ -391,19 +385,6 @@ private fun PixelsPainter(
                 }
         )
     }
-}
-
-inline fun DrawScope.withNativeCanvas(block: NativeCanvas.() -> Unit) {
-    block(drawContext.canvas.nativeCanvas)
-}
-
-inline fun DrawScope.useNativeCanvas(block: NativeCanvas.() -> Unit) {
-    val nativeCanvas = drawContext.canvas.nativeCanvas
-    nativeCanvas.save()
-
-    block(nativeCanvas)
-
-    nativeCanvas.restore()
 }
 
 private const val BORDER_SIZE = 1

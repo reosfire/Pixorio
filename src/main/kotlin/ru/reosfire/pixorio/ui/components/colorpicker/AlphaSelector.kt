@@ -8,7 +8,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.NativePaint
 import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.IntSize
 import org.jetbrains.skia.Bitmap
@@ -17,6 +16,7 @@ import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import ru.reosfire.pixorio.BitmapCanvas
 import ru.reosfire.pixorio.draggable
+import ru.reosfire.pixorio.extensions.compose.withNativeCanvas
 
 private val BAR_BG_COLOR = Color.Black.copy(alpha = 0.8f)
 private val BAR_COLOR = Color.hsv(0f, 0f, 0.5f)
@@ -48,18 +48,20 @@ fun AlphaSelector(
                 val srcRect = Rect.makeXYWH(0f, 0f, background.width.toFloat(), background.height.toFloat())
                 val dstRect = Rect.makeXYWH(0f, 0f, size.width, size.height)
 
-                onDrawBehind {
-                    drawContext.canvas.nativeCanvas.drawImageRect(
-                        image = backgroundImage,
-                        src = srcRect,
-                        dst = dstRect,
-                        samplingMode = SamplingMode.DEFAULT, // FilterQuality.None
-                        paint = imageDrawerPaint,
-                        strict = true,
-                    )
+                val barLeftEnd = Offset(0f, alpha * size.height)
+                val barRightEnd = Offset(size.width, alpha * size.height)
 
-                    val barLeftEnd = Offset(0f, alpha * size.height)
-                    val barRightEnd = Offset(size.width, alpha * size.height)
+                onDrawBehind {
+                    withNativeCanvas {
+                        drawImageRect(
+                            image = backgroundImage,
+                            src = srcRect,
+                            dst = dstRect,
+                            samplingMode = SamplingMode.DEFAULT, // FilterQuality.None
+                            paint = imageDrawerPaint,
+                            strict = true,
+                        )
+                    }
 
                     drawLine(BAR_BG_COLOR, barLeftEnd, barRightEnd, 5f)
                     drawLine(BAR_COLOR, barLeftEnd, barRightEnd, 3f)

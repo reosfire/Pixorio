@@ -1,16 +1,19 @@
 package ru.reosfire.pixorio.filepicker
 
-import androidx.compose.foundation.VerticalScrollbar
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.res.loadImageBitmap
+import androidx.compose.ui.res.useResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -139,15 +142,29 @@ fun FileView(
     var name = file.name
     if (name.isEmpty()) name = file.path
 
-    Text(
-        text = name,
-        color = if (isSelected) MaterialTheme.colors.onSurface else MaterialTheme.colors.onBackground,
-        fontWeight = FontWeight.Light,
-        fontSize = 12.sp,
-        lineHeight = 12.sp,
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
             .then(if (isSelected) Modifier.background(MaterialTheme.colors.surface) else Modifier)
             .clickable(onClick = onClick)
-    )
+    ) {
+        if (file.isDirectory) {
+            Image(
+                bitmap = useResource("icons/brushes/pencil.png") { loadImageBitmap(it) },
+                contentDescription = "adf",
+                filterQuality = FilterQuality.None,
+                modifier = Modifier
+                    .size(12.dp)
+                    .clip(RoundedCornerShape(2.dp))
+            )
+        }
+        Text(
+            text = name,
+            color = if (isSelected) MaterialTheme.colors.onSurface else MaterialTheme.colors.onBackground,
+            fontWeight = FontWeight.Light,
+            fontSize = 12.sp,
+            lineHeight = 12.sp,
+        )
+    }
 }

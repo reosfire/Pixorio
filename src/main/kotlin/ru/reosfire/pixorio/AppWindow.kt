@@ -362,7 +362,7 @@ private fun PixelsPainter(
 
                     checkeredShaderBrush.setUniforms(
                         squareSize = max(2f, editorContext.scalingFactor / 2),
-                        offset = offset
+                        offset = offset,
                     )
 
                     onDrawBehind {

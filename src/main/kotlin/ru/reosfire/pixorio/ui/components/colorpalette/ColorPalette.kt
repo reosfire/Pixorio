@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
@@ -16,14 +17,9 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.graphics.asComposeImageBitmap
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import org.jetbrains.skia.Bitmap
-import ru.reosfire.pixorio.BitmapCanvas
-import ru.reosfire.pixorio.extensions.compose.contrastColor
-import ru.reosfire.pixorio.extensions.compose.toInt
+import ru.reosfire.pixorio.shaders.CheckeredShaderBrush
+import kotlin.math.min
 
 @Composable
 fun ColorsPalette(
@@ -47,16 +43,13 @@ fun ColorsPalette(
     }
 }
 
-private val innerRectOffset = Offset(1f, 1f)
-private val colorItemCornerRadius = CornerRadius(4f)
-
 @Composable
 private fun ColorItem(
     color: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val backgroundColor = color.contrastColor
+    val checkeredShaderBrush = remember { CheckeredShaderBrush() }
 
     Spacer(
         modifier
@@ -66,14 +59,19 @@ private fun ColorItem(
             .drawWithCache {
                 val innerRectSize = Size(size.width - 2, size.height - 2)
 
-                val bg = createCheckeredBackground(IntSize((size.width / 5).toInt(), (size.height / 5).toInt())).asComposeImageBitmap()
+                checkeredShaderBrush.setUniforms(
+                    squareSize = min(size.height / CHECKS_COUNT, size.width / CHECKS_COUNT),
+                    offset = Offset.Zero,
+                )
 
                 onDrawBehind {
-                    drawImage(
-                        bg,
-                        dstSize = size.toInt(),
-                        filterQuality = FilterQuality.None,
+                    drawRoundRect(
+                        brush = checkeredShaderBrush,
+                        cornerRadius = colorItemCornerRadius,
+                        topLeft = Offset.Zero,
+                        size = size
                     )
+
                     drawRoundRect(
                         color = color,
                         cornerRadius = colorItemCornerRadius,
@@ -85,20 +83,7 @@ private fun ColorItem(
     )
 }
 
-private fun createCheckeredBackground(
-    size: IntSize
-): Bitmap {
-    val canvas = BitmapCanvas(size)
+private const val CHECKS_COUNT = 3
 
-    val colorA = Color.hsv(0f, 0f, 0.7f)
-    val colorB = Color.hsv(0f, 0f, 0.3f)
-
-    for (y in 0 until size.height) {
-        for (x in 0 until size.width) {
-            val baseColor = if ((x + y) % 2 == 0) colorA else colorB
-            canvas.setColor(x, y, baseColor)
-        }
-    }
-
-    return canvas.createBitmap()
-}
+private val innerRectOffset = Offset(1f, 1f)
+private val colorItemCornerRadius = CornerRadius(4f)

@@ -11,22 +11,29 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.res.useResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEachReversed
 import androidx.compose.ui.window.DialogWindow
+import androidx.compose.ui.window.rememberDialogState
 import ru.reosfire.pixorio.MainTheme
 import ru.reosfire.pixorio.ui.components.basics.BasicButton
 import java.io.File
 
 data class FileNode(
     val file: File,
+    val openedState: MutableState<Boolean> = mutableStateOf(false),
     val children: MutableList<FileNode> = mutableStateListOf(),
 ) {
+    var opened by openedState
+
     fun clearChildrenRecursive() {
         for (child in children) {
             child.clearChildrenRecursive()
@@ -47,6 +54,7 @@ fun FilePickerDialog(
     val files = remember { rootFiles.map { FileNode(it) }.toMutableStateList() }
 
     DialogWindow(
+        state = rememberDialogState(size = DpSize(800.dp, 600.dp)),
         onCloseRequest = onCloseRequest,
         title = title,
     ) {
@@ -59,8 +67,8 @@ fun FilePickerDialog(
                 Text(
                     text = selected?.path ?: "",
                     maxLines = 1,
-                    modifier = Modifier,
                     color = MaterialTheme.colors.onBackground,
+                    modifier = Modifier,
                 )
 
                 Row(Modifier.weight(1f)) {
@@ -79,14 +87,12 @@ fun FilePickerDialog(
                             val (node, depth) = stack.removeLast()
 
                             item(key = node.file.path) {
-                                var opened by remember { mutableStateOf(false) }
-
                                 FileView(
-                                    file = node.file,
+                                    state = node,
                                     isSelected = selected?.path == node.file.path,
                                     onClick = {
-                                        opened = !opened
-                                        if (opened) {
+                                        node.opened = !node.opened
+                                        if (node.opened) {
                                             node.file.listFiles()?.let { innerFiles ->
                                                 node.children.addAll(innerFiles.filter { !it.isHidden }.map { file -> FileNode(file) })
                                             }
@@ -134,37 +140,69 @@ fun FilePickerDialog(
 
 @Composable
 fun FileView(
-    file: File,
+    state: FileNode,
     isSelected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var name = file.name
-    if (name.isEmpty()) name = file.path
+    var name = state.file.name
+    if (name.isEmpty()) name = state.file.path
+
+    val contentColor = if (isSelected) MaterialTheme.colors.onSurface else MaterialTheme.colors.onBackground
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
+            .clip(RoundedCornerShape(2.dp))
             .fillMaxWidth()
             .then(if (isSelected) Modifier.background(MaterialTheme.colors.surface) else Modifier)
             .clickable(onClick = onClick)
     ) {
-        if (file.isDirectory) {
-            Image(
-                bitmap = useResource("icons/brushes/pencil.png") { loadImageBitmap(it) },
-                contentDescription = "adf",
-                filterQuality = FilterQuality.None,
+        if (state.file.isDirectory) {
+            PixelImage(
+                bitmap = if (state.opened) DOWN_ARROW_BITMAP else RIGHT_ARROW_BITMAP,
+                colorFilter = ColorFilter.tint(contentColor),
                 modifier = Modifier
-                    .size(12.dp)
-                    .clip(RoundedCornerShape(2.dp))
+                    .padding(horizontal = 4.dp)
+                    .size(8.dp)
             )
+        } else {
+            Spacer(modifier = Modifier.padding(horizontal = 4.dp).size(8.dp))
         }
+        PixelImage(
+            bitmap = if (state.file.isDirectory) FOLDER_BITMAP else FILE_BITMAP,
+            colorFilter = ColorFilter.tint(contentColor),
+            modifier = Modifier
+                .padding(end = 4.dp)
+                .size(16.dp)
+        )
         Text(
             text = name,
-            color = if (isSelected) MaterialTheme.colors.onSurface else MaterialTheme.colors.onBackground,
+            color = contentColor,
             fontWeight = FontWeight.Light,
-            fontSize = 12.sp,
-            lineHeight = 12.sp,
+            fontSize = 16.sp,
+            lineHeight = 16.sp,
         )
     }
+}
+
+private val DOWN_ARROW_BITMAP = useResource("icons/filepicker/down_arrow.png") { loadImageBitmap(it) }
+private val RIGHT_ARROW_BITMAP = useResource("icons/filepicker/right_arrow.png") { loadImageBitmap(it) }
+
+private val FOLDER_BITMAP = useResource("icons/filepicker/folder.png") { loadImageBitmap(it) }
+private val FILE_BITMAP = useResource("icons/filepicker/file.png") { loadImageBitmap(it) }
+
+@Composable
+fun PixelImage(
+    bitmap: ImageBitmap,
+    colorFilter: ColorFilter,
+    modifier: Modifier = Modifier,
+) {
+    Image(
+        bitmap = bitmap,
+        contentDescription = null,
+        filterQuality = FilterQuality.None,
+        colorFilter = colorFilter,
+        modifier = modifier,
+    )
 }

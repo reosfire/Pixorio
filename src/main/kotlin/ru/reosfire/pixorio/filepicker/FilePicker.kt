@@ -1,12 +1,10 @@
 package ru.reosfire.pixorio.filepicker
 
-import androidx.compose.foundation.VerticalScrollbar
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -21,7 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.fastForEachReversed
 import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.rememberDialogState
 import ru.reosfire.pixorio.MainTheme
@@ -36,12 +33,27 @@ data class FileNode(
 ) {
     var opened by openedState
 
-    fun clearChildrenRecursive() {
+    fun toggle() {
+        opened = !opened
+        if (opened) {
+            updateChildren()
+        } else {
+            clearChildrenRecursive()
+        }
+    }
+
+    private fun clearChildrenRecursive() {
         for (child in children) {
             child.clearChildrenRecursive()
         }
 
         children.clear()
+    }
+
+    private fun updateChildren() {
+        file.listFiles()?.let { innerFiles ->
+            children.addAll(innerFiles.filter { !it.isHidden }.map { file -> FileNode(file) })
+        }
     }
 }
 
@@ -53,7 +65,27 @@ fun FilePickerDialog(
     val rootFiles = File.listRoots()
 
     var selected by remember { mutableStateOf<File?>(null) }
-    val files = remember { rootFiles.map { FileNode(it) }.toMutableStateList() }
+    val rootNodes = remember { rootFiles.map { FileNode(it) }.toMutableStateList() }
+
+    fun LazyListScope.inflate(
+        node: FileNode,
+        depth: Int = 0,
+    ) {
+        item(key = node.file.path) {
+            FileNodeView(
+                state = node,
+                isSelected = selected?.path == node.file.path,
+                onClick = {
+                    node.toggle()
+                    selected = node.file
+                },
+                modifier = Modifier
+                    .padding(start = (16 * depth).dp).fillMaxSize(),
+            )
+        }
+
+        node.children.forEach { child -> inflate(child, depth + 1) }
+    }
 
     DialogWindow(
         state = rememberDialogState(size = DpSize(800.dp, 600.dp)),
@@ -73,48 +105,32 @@ fun FilePickerDialog(
                     modifier = Modifier,
                 )
 
-                Row(Modifier.weight(1f)) {
-                    val state = rememberLazyListState()
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    val lazyListState = rememberLazyListState()
+                    val horizontalScrollState = rememberScrollState()
 
                     LazyColumn(
-                        state = state,
+                        state = lazyListState,
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .weight(1f),
+                            .align(Alignment.TopStart)
+                            .fillMaxSize()
+                            .horizontalScroll(horizontalScrollState),
                     ) {
-                        val stack = mutableListOf<Pair<FileNode, Int>>()
-                        files.fastForEachReversed { file -> stack.add(file to 0) }
-
-                        while (stack.isNotEmpty()) {
-                            val (node, depth) = stack.removeLast()
-
-                            item(key = node.file.path) {
-                                FileView(
-                                    state = node,
-                                    isSelected = selected?.path == node.file.path,
-                                    onClick = {
-                                        node.opened = !node.opened
-                                        if (node.opened) {
-                                            node.file.listFiles()?.let { innerFiles ->
-                                                node.children.addAll(innerFiles.filter { !it.isHidden }.map { file -> FileNode(file) })
-                                            }
-                                        } else {
-                                            node.clearChildrenRecursive()
-                                        }
-
-                                        selected = node.file
-                                    },
-                                    modifier = Modifier.padding(start = (16 * depth).dp)
-                                )
-                            }
-
-                            node.children.fastForEachReversed { child -> stack.add(child to depth + 1) }
-                        }
+                        rootNodes.forEach { inflate(it) }
                     }
 
                     VerticalScrollbar(
-                        modifier = Modifier.fillMaxHeight(),
-                        adapter = rememberScrollbarAdapter(state)
+                        adapter = rememberScrollbarAdapter(lazyListState),
+                        modifier = Modifier.fillMaxHeight().align(Alignment.TopEnd)
+                    )
+
+                    HorizontalScrollbar(
+                        adapter = rememberScrollbarAdapter(horizontalScrollState),
+                        modifier = Modifier.fillMaxWidth().align(Alignment.BottomStart)
                     )
                 }
 
@@ -141,47 +157,94 @@ fun FilePickerDialog(
 }
 
 @Composable
-fun FileView(
+fun FileNodeView(
     state: FileNode,
     isSelected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var name = state.file.name
-    if (name.isEmpty()) name = state.file.path
+    val file = state.file
 
+    var name = file.name
+    if (name.isEmpty()) name = file.path
+
+    if (file.isDirectory) {
+        DirectoryView(
+            name = name,
+            opened = state.openedState,
+            isSelected = isSelected,
+            onClick = onClick,
+            modifier = modifier,
+        )
+    } else if (file.isFile) {
+        FileView(
+            name = name,
+            isSelected = isSelected,
+            onClick = onClick,
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
+private fun DirectoryView(
+    name: String,
+    opened: MutableState<Boolean>,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val contentColor = if (isSelected) MaterialTheme.colors.onSurface else MaterialTheme.colors.onBackground
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .clip(RoundedCornerShape(2.dp))
-            .fillMaxWidth()
             .then(if (isSelected) Modifier.background(MaterialTheme.colors.surface) else Modifier)
             .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp)
     ) {
-        if (state.file.isDirectory) {
-            PixelImage(
-                bitmap = if (state.opened) DOWN_ARROW_BITMAP else RIGHT_ARROW_BITMAP,
-                colorFilter = ColorFilter.tint(contentColor),
-                modifier = Modifier
-                    .padding(horizontal = 4.dp)
-                    .size(8.dp)
-            )
-        } else {
-            Spacer(modifier = Modifier.padding(horizontal = 4.dp).size(8.dp))
-        }
         PixelImage(
-            bitmap = if (state.file.isDirectory) FOLDER_BITMAP else FILE_BITMAP,
+            bitmap = if (opened.value) DOWN_ARROW_BITMAP else RIGHT_ARROW_BITMAP,
             colorFilter = ColorFilter.tint(contentColor),
             modifier = Modifier
                 .padding(end = 4.dp)
-                .size(16.dp)
+                .size(8.dp)
         )
         Text(
             text = name,
             color = contentColor,
             fontWeight = FontWeight.Light,
+            maxLines = 1,
+            fontSize = 16.sp,
+            lineHeight = 16.sp,
+        )
+    }
+}
+
+@Composable
+private fun FileView(
+    name: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val contentColor = if (isSelected) MaterialTheme.colors.onSurface else MaterialTheme.colors.onBackground
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .padding(start = 12.dp)
+            .clip(RoundedCornerShape(2.dp))
+            .then(if (isSelected) Modifier.background(MaterialTheme.colors.surface) else Modifier)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp)
+    ) {
+        Text(
+            text = name,
+            color = contentColor,
+            fontWeight = FontWeight.Light,
+            maxLines = 1,
             fontSize = 16.sp,
             lineHeight = 16.sp,
         )

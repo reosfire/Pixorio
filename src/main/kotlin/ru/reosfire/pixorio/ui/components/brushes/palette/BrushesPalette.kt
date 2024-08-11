@@ -1,6 +1,9 @@
 package ru.reosfire.pixorio.ui.components.brushes.palette
 
-import androidx.compose.foundation.*
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.TooltipArea
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -12,11 +15,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.res.useResource
 import androidx.compose.ui.unit.dp
 import ru.reosfire.pixorio.brushes.AbstractBrush
+import ru.reosfire.pixorio.ui.components.basics.PixelImage
 
 data class BrushUiData(
     val name: String,
@@ -63,14 +66,12 @@ private fun BrushItem(
             Text(brush.name)
         },
     ) {
-        Image(
+        PixelImage(
             bitmap = useResource(brush.iconResource) { loadImageBitmap(it) },
-            contentDescription = brush.name.first().toString(),
-            filterQuality = FilterQuality.None,
             modifier = modifier
                 .size(28.dp)
-                .then(if (isSelected) Modifier.border(1.dp, Color.White) else Modifier)
                 .clip(RoundedCornerShape(4.dp))
+                .then(if (isSelected) Modifier.border(1.dp, Color.White) else Modifier)
                 .clickable(onClick = onClick),
         )
     }

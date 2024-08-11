@@ -1,9 +1,12 @@
 package ru.reosfire.pixorio.filepicker
 
-import androidx.compose.foundation.*
+import androidx.compose.foundation.VerticalScrollbar
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -12,8 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.res.useResource
 import androidx.compose.ui.text.font.FontWeight
@@ -25,6 +26,7 @@ import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.rememberDialogState
 import ru.reosfire.pixorio.MainTheme
 import ru.reosfire.pixorio.ui.components.basics.BasicButton
+import ru.reosfire.pixorio.ui.components.basics.PixelImage
 import java.io.File
 
 data class FileNode(
@@ -191,18 +193,3 @@ private val RIGHT_ARROW_BITMAP = useResource("icons/filepicker/right_arrow.png")
 
 private val FOLDER_BITMAP = useResource("icons/filepicker/folder.png") { loadImageBitmap(it) }
 private val FILE_BITMAP = useResource("icons/filepicker/file.png") { loadImageBitmap(it) }
-
-@Composable
-fun PixelImage(
-    bitmap: ImageBitmap,
-    colorFilter: ColorFilter,
-    modifier: Modifier = Modifier,
-) {
-    Image(
-        bitmap = bitmap,
-        contentDescription = null,
-        filterQuality = FilterQuality.None,
-        colorFilter = colorFilter,
-        modifier = modifier,
-    )
-}

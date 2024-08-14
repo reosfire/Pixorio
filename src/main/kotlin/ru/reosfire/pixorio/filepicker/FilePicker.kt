@@ -1,23 +1,17 @@
 package ru.reosfire.pixorio.filepicker
 
-import androidx.compose.foundation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.selection.LocalTextSelectionColors
-import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.key.*
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.res.useResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindow
@@ -26,7 +20,6 @@ import kotlinx.coroutines.launch
 import ru.reosfire.pixorio.MainTheme
 import ru.reosfire.pixorio.ui.components.basics.BasicButton
 import ru.reosfire.pixorio.ui.components.basics.PixelImage
-import ru.reosfire.pixorio.utils.WrappedInt
 import java.io.File
 
 @Composable
@@ -40,9 +33,8 @@ fun FilePickerDialog(
     var selectedFile by selectedFileState
     val rootNodes = remember { rootFiles.map { FileNode(it) } }
 
-    val lazyListState = rememberLazyListState()
+    val fileTreeState = rememberFileTreeState()
     val coroutineScope = rememberCoroutineScope()
-    val filesIndex = remember { mutableMapOf<File, Int>() }
 
     fun update() {
         selectedFile?.let { selectedFile ->
@@ -50,9 +42,7 @@ fun FilePickerDialog(
         }
 
         coroutineScope.launch {
-            filesIndex[selectedFile]?.let {
-                lazyListState.scrollToItem(it)
-            }
+            selectedFile?.let { fileTreeState.scrollToItem(it) }
         }
     }
 
@@ -87,9 +77,8 @@ fun FilePickerDialog(
                 )
 
                 FileTree(
-                    lazyListState = lazyListState,
+                    state = fileTreeState,
                     selectedFileState = selectedFileState,
-                    filesIndex = filesIndex,
                     rootNodes = rootNodes,
                     modifier = Modifier
                         .weight(1f)
@@ -119,127 +108,10 @@ fun FilePickerDialog(
     }
 }
 
-@Composable
-private fun FileTree(
-    lazyListState: LazyListState,
-    selectedFileState: MutableState<File?>,
-    filesIndex: MutableMap<File, Int>,
-    rootNodes: List<FileNode>,
-    modifier: Modifier = Modifier,
-) {
-    var selectedFile by selectedFileState
-
-    fun LazyListScope.inflate(
-        node: FileNode,
-        itemIndex: WrappedInt,
-        depth: Int = 0,
-    ) {
-        item(key = node.file.path) {
-            FileNodeView(
-                state = node,
-                isSelected = selectedFile == node.file,
-                onClick = {
-                    node.toggle()
-                    selectedFile = node.file
-                },
-                modifier = Modifier
-                    .padding(start = (16 * depth).dp)
-                    .fillMaxWidth()
-            )
-        }
-
-        filesIndex[node.file] = itemIndex.value++
-
-        node.children.forEachIndexed { i, child ->
-            inflate(child, itemIndex, depth + 1)
-        }
-    }
-
-    Box(modifier = modifier) {
-        val horizontalScrollState = rememberScrollState()
-
-        LazyColumn(
-            state = lazyListState,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .fillMaxSize()
-                .horizontalScroll(horizontalScrollState)
-            ,
-            content = {
-                val counter = WrappedInt()
-                rootNodes.forEach { inflate(it, counter) }
-            },
-        )
-
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(lazyListState),
-            modifier = Modifier
-                .fillMaxHeight()
-                .align(Alignment.TopEnd)
-        )
-
-        HorizontalScrollbar(
-            adapter = rememberScrollbarAdapter(horizontalScrollState),
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomStart)
-        )
-    }
-}
-
-@Composable
-fun TextFilePicker(
-    state: State<File?>,
-    onSelected: (File) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val currentFile by state
-
-    var text by remember(currentFile) {
-        mutableStateOf(currentFile?.path ?: "")
-    }
-
-    val customTextSelectionColors = TextSelectionColors(
-        handleColor = MaterialTheme.colors.onSurface,
-        backgroundColor = MaterialTheme.colors.surface,
-    )
-
-    val focusManager = LocalFocusManager.current
-
-    CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
-        BasicTextField(
-            value = text,
-            onValueChange = {
-                val file = File(it.trim())
-                if (file.exists()) {
-                    onSelected(file)
-                    text = it
-                } else {
-                    text = it
-                }
-            },
-            textStyle = TextStyle.Default.copy(
-                color = MaterialTheme.colors.onBackground,
-            ),
-            singleLine = true,
-            cursorBrush = SolidColor(MaterialTheme.colors.onBackground),
-            modifier = modifier
-                .background(MaterialTheme.colors.background)
-                .onPreviewKeyEvent {
-                    if (it.key == Key.Enter && it.type == KeyEventType.KeyUp) {
-                        focusManager.clearFocus()
-                        true
-                    }
-                    else false
-                }
-                .focusable()
-        )
-    }
-}
-
 data class SpecialLocationUIData(
     val file: File,
     val icon: ImageBitmap,
+    val id: Int,
 )
 
 @Composable
@@ -250,7 +122,7 @@ fun SpecialLocations(
     modifier: Modifier = Modifier,
 ) {
     LazyRow(modifier = modifier) {
-        items(locations, key = { it.file.path }) {
+        items(locations, key = { it.id }) {
             PixelImage(
                 bitmap = it.icon,
                 modifier = Modifier
@@ -268,6 +140,5 @@ private val FOLDER_BITMAP = useResource("icons/filepicker/folder.png") { loadIma
 private val FILE_BITMAP = useResource("icons/filepicker/file.png") { loadImageBitmap(it) }
 
 val specialLocations = listOf(
-    SpecialLocationUIData(File(System.getProperty("user.home")), FILE_BITMAP),
-
+    SpecialLocationUIData(File(System.getProperty("user.home")), FILE_BITMAP, 0),
 )

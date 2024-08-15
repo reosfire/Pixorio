@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalFocusManager
@@ -23,7 +24,7 @@ fun TextFilePicker(
     val currentFile by state
 
     var text by remember(currentFile) {
-        mutableStateOf(currentFile?.path ?: "")
+        mutableStateOf(currentFile.toStr())
     }
 
     val customTextSelectionColors = TextSelectionColors(
@@ -60,6 +61,11 @@ fun TextFilePicker(
                     else false
                 }
                 .focusable()
+                .onFocusChanged { text = currentFile.toStr() }
         )
     }
+}
+
+private fun File?.toStr(): String {
+    return this?.path ?: ""
 }

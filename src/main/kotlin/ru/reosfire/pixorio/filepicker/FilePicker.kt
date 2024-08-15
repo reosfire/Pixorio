@@ -37,11 +37,11 @@ fun FilePickerDialog(
     val coroutineScope = rememberCoroutineScope()
 
     fun update() {
-        selectedFile?.let { selectedFile ->
-            rootNodes.forEach { it.tryOpenPath(selectedFile) }
-        }
-
         coroutineScope.launch {
+            selectedFile?.let { selectedFile ->
+                rootNodes.forEach { it.tryOpenPath(selectedFile) }
+            }
+
             selectedFile?.let { fileTreeState.scrollToItem(it) }
         }
     }

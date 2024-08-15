@@ -9,8 +9,8 @@ import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.math.max
 
@@ -49,6 +49,7 @@ fun FileTree(
     rootNodes: List<FileNode>,
     modifier: Modifier = Modifier,
 ) {
+    val scope = rememberCoroutineScope()
     var selectedFile by selectedFileState
 
     fun inflate(
@@ -61,7 +62,9 @@ fun FileTree(
                 state = node,
                 isSelected = selectedFile == node.file,
                 onClick = {
-                    node.toggle()
+                    scope.launch {
+                        node.toggle()
+                    }
                     selectedFile = node.file
                 },
                 modifier = Modifier
@@ -75,13 +78,17 @@ fun FileTree(
         }
     }
 
-    var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    val verticalScrollState = state.scrollState
+    val horizontalScrollState = rememberScrollState()
 
-    Box(modifier = modifier.onPlaced { containerSize = it.size }) {
-        val horizontalScrollState = rememberScrollState()
+    val endPadding = if (verticalScrollState.canScroll) SCROLL_BAR_THICKNESS else 0
+    val bottomPadding = if (horizontalScrollState.canScroll) SCROLL_BAR_THICKNESS else 0
 
+    var containerWidth by remember { mutableIntStateOf(0) }
+    Box(modifier = modifier.onPlaced { containerWidth = it.size.width }) {
         SubcomposeLayout(
             modifier = Modifier
+                .padding(end = endPadding.dp)
                 .align(Alignment.TopStart)
                 .horizontalScroll(horizontalScrollState)
                 .verticalScroll(state.scrollState)
@@ -92,7 +99,7 @@ fun FileTree(
 
             var idx = 0
 
-            var resultWidth = containerSize.width
+            var resultWidth = containerWidth - endPadding
             items.forEach { item ->
                 subcompose(idx++, item.content).forEach {
                     resultWidth = max(resultWidth, it.measure(Constraints()).width)
@@ -108,7 +115,7 @@ fun FileTree(
                 )
             }
 
-            layout(resultWidth, measuredItems.sumOf { it.totalHeight }) {
+            layout(resultWidth, measuredItems.sumOf { it.totalHeight } + bottomPadding) {
                 var y = 0
 
                 measuredItems.forEach { measuredItem ->
@@ -122,18 +129,33 @@ fun FileTree(
             }
         }
 
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(state.scrollState),
-            modifier = Modifier
-                .fillMaxHeight()
-                .align(Alignment.TopEnd)
-        )
+        val showVerticalScroll = verticalScrollState.canScroll
+        val showHorizontalScroll = horizontalScrollState.canScroll
 
-        HorizontalScrollbar(
-            adapter = rememberScrollbarAdapter(horizontalScrollState),
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomStart)
-        )
+        if (showVerticalScroll) {
+            VerticalScrollbar(
+                adapter = rememberScrollbarAdapter(verticalScrollState),
+                modifier = Modifier
+                    .then(if (showHorizontalScroll) Modifier.padding(bottom = SCROLL_BAR_THICKNESS.dp) else Modifier)
+                    .fillMaxHeight()
+                    .align(Alignment.TopEnd)
+            )
+        }
+
+        if (showHorizontalScroll) {
+            HorizontalScrollbar(
+                adapter = rememberScrollbarAdapter(horizontalScrollState),
+                modifier = Modifier
+                    .then(if (showVerticalScroll) Modifier.padding(end = SCROLL_BAR_THICKNESS.dp) else Modifier)
+                    .fillMaxWidth()
+                    .align(Alignment.BottomStart)
+            )
+        }
     }
 }
+
+val ScrollState.canScroll: Boolean
+    get() = canScrollForward || canScrollBackward
+
+
+private const val SCROLL_BAR_THICKNESS = 12

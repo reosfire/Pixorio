@@ -1,6 +1,7 @@
 package ru.reosfire.pixorio.filepicker
 
 import androidx.compose.runtime.*
+import kotlinx.coroutines.*
 import java.io.File
 import java.nio.file.Path
 
@@ -11,7 +12,7 @@ data class FileNode(
 ) {
     var opened by openedState
 
-    fun toggle() {
+    suspend fun toggle() {
         opened = !opened
         if (opened) {
             updateChildren()
@@ -20,7 +21,7 @@ data class FileNode(
         }
     }
 
-    fun tryOpenPath(selectedFile: File) {
+    suspend fun tryOpenPath(selectedFile: File) {
         val nodePath = file.toPath()
         val selectedFilePath = selectedFile.toPath()
 
@@ -46,17 +47,25 @@ data class FileNode(
         }
     }
 
-    private fun clearChildrenRecursive() {
-        for (child in children) {
-            child.clearChildrenRecursive()
-        }
+    private suspend fun clearChildrenRecursive() {
+        coroutineScope {
+            val jobs = children.map { node ->
+                launch {
+                    node.clearChildrenRecursive()
+                }
+            }
 
-        children.clear()
+            jobs.joinAll()
+
+            children.clear()
+        }
     }
 
-    private fun updateChildren() {
-        file.listFiles()?.let { innerFiles ->
-            children.addAll(innerFiles.filter { !it.isHidden }.map { file -> FileNode(file) })
+    private suspend fun updateChildren() {
+        withContext(Dispatchers.IO) {
+            file.listFiles()?.let { innerFiles ->
+                children.addAll(innerFiles.filter { !it.isHidden }.map { file -> FileNode(file) })
+            }
         }
     }
 }

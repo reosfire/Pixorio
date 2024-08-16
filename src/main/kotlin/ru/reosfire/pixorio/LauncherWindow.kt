@@ -15,6 +15,7 @@ import androidx.compose.ui.window.ApplicationScope
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberWindowState
+import ru.reosfire.pixorio.filepicker.FilePickerDialog
 
 @Composable
 fun ApplicationScope.LauncherWindow(
@@ -25,6 +26,13 @@ fun ApplicationScope.LauncherWindow(
         onCloseRequest = ::exitApplication,
         title = APP_NAME,
     ) {
+        var opened by remember { mutableStateOf(true) }
+        if (opened) {
+            FilePickerDialog(
+                onCloseRequest = { opened = false }
+            )
+        }
+
         val widthState = remember { SizeComponentInputFieldState(64) }
         val heightState = remember { SizeComponentInputFieldState(64) }
 

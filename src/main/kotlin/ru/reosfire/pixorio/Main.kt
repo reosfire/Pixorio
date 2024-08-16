@@ -6,7 +6,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.window.application
-import ru.reosfire.pixorio.filepicker.FilePickerDialog
 
 sealed class ApplicationState {
     data object Launcher : ApplicationState()
@@ -33,12 +32,5 @@ fun main() = application {
                 }
             )
         }
-    }
-
-    var opened by remember { mutableStateOf(true) }
-    if (opened) {
-        FilePickerDialog(
-            onCloseRequest = { opened = false }
-        )
     }
 }

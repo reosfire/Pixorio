@@ -1,4 +1,4 @@
-package ru.reosfire.pixorio.ui.components.basics
+package ru.reosfire.pixorio.ui.components.common
 
 import androidx.compose.foundation.Image
 import androidx.compose.runtime.Composable

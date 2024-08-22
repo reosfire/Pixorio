@@ -19,7 +19,7 @@ import androidx.compose.ui.res.loadImageBitmap
 import androidx.compose.ui.res.useResource
 import androidx.compose.ui.unit.dp
 import ru.reosfire.pixorio.brushes.AbstractBrush
-import ru.reosfire.pixorio.ui.components.basics.PixelImage
+import ru.reosfire.pixorio.ui.components.common.PixelImage
 
 data class BrushUiData(
     val name: String,

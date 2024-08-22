@@ -1,4 +1,4 @@
-package ru.reosfire.pixorio.ui.components.basics
+package ru.reosfire.pixorio.ui.components.common
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource

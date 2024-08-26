@@ -19,7 +19,7 @@ import androidx.compose.ui.res.useResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ru.reosfire.pixorio.ui.components.basics.PixelImage
+import ru.reosfire.pixorio.ui.components.common.PixelImage
 
 private val DOWN_ARROW_BITMAP = useResource("icons/filepicker/down_arrow.png") { loadImageBitmap(it) }
 private val RIGHT_ARROW_BITMAP = useResource("icons/filepicker/right_arrow.png") { loadImageBitmap(it) }

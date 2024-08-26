@@ -1,42 +1,49 @@
 package ru.reosfire.pixorio.filepicker
 
 import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.SubcomposeLayout
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.math.max
+import kotlin.math.min
 
+@Stable
 data class FileTreeState(
     val scrollState: ScrollState,
     val offsetsIndex: MutableMap<File, Int> = mutableMapOf(),
 ) {
     suspend fun scrollToItem(file: File) {
-        offsetsIndex[file]?.let { offset -> scrollState.scrollTo(offset) }
+        offsetsIndex[file]?.let { offset -> scrollState.animateScrollTo(offset) }
     }
 }
 
 @Composable
-fun rememberFileTreeState(): FileTreeState {
-    return FileTreeState(
-        rememberScrollState()
-    )
+fun rememberFileTreeState(): FileTreeState = remember {
+    FileTreeState(ScrollState(0))
 }
 
 data class FileTreeItem(
     val node: FileNode,
     val content: @Composable () -> Unit,
 )
+
+data class Composed<T>(
+    val item: T,
+    val measurables: List<Measurable>,
+) {
+    fun maxIntrinsicWidth(height: Int): Int {
+        return if (measurables.isEmpty()) 0
+        else measurables.maxOf { it.maxIntrinsicWidth(height) }
+    }
+}
 
 data class Measured<T>(
     val item: T,
@@ -72,7 +79,6 @@ fun FileTree(
                 },
                 modifier = Modifier
                     .padding(start = (16 * depth).dp)
-                    .fillMaxWidth()
             )
         }
 
@@ -81,22 +87,16 @@ fun FileTree(
         }
     }
 
-    val verticalScrollState = state.scrollState
-    val horizontalScrollState = rememberScrollState()
-
-    val endPadding = if (verticalScrollState.canScroll) SCROLL_BAR_THICKNESS else 0
-    val bottomPadding = if (horizontalScrollState.canScroll) SCROLL_BAR_THICKNESS else 0
-
-    var containerWidth by remember { mutableIntStateOf(0) }
     Box(modifier = modifier) {
+        val verticalScrollState = state.scrollState
+        val horizontalScrollState = rememberScrollState()
+
+        val endPadding by rememberDerived { if (verticalScrollState.canScroll) SCROLL_BAR_THICKNESS else 0 }
+        val bottomPadding by rememberDerived { if (horizontalScrollState.canScroll) SCROLL_BAR_THICKNESS else 0 }
+
         SubcomposeLayout(
             modifier = Modifier
-                .layout { measurable, constraints ->
-                    containerWidth = constraints.maxWidth
-                    layout(constraints.maxWidth, constraints.maxHeight) {
-                        measurable.measure(constraints).place(0, 0)
-                    }
-                }
+                .fillMaxSize() // Set min constraints to max possible which will be passed down by scroll modifiers
                 .padding(end = endPadding.dp)
                 .align(Alignment.TopStart)
                 .horizontalScroll(horizontalScrollState)
@@ -105,30 +105,37 @@ fun FileTree(
             val items = mutableListOf<FileTreeItem>()
             rootNodes.forEach { inflate(it, result = items) }
 
-            var idx = 0
+            val itemHeight = subcompose(-1, items.first().content).sumOf { it.measure(Constraints()).height }
 
-            var resultWidth = containerWidth - endPadding
-            items.forEach { item ->
-                subcompose(idx++, item.content).forEach {
-                    resultWidth = max(resultWidth, it.measure(Constraints()).width)
-                }
-            }
+            items.forEachIndexed { i, item -> state.offsetsIndex[item.node.file] = i * itemHeight }
 
-            val measuredItems = items.map { item ->
-                Measured(
+            val startIndex = verticalScrollState.value / itemHeight
+            val endIndex = min(items.size, startIndex + constraints.minHeight / itemHeight + 2)
+
+            val composedItems = (startIndex..<endIndex).map {
+                val item = items[it]
+                Composed(
                     item = item,
-                    placeables = subcompose(item.node.file.path, item.content).map {
-                        it.measure(Constraints(minWidth = resultWidth))
-                    },
+                    measurables = subcompose(item.node.file.path, item.content)
                 )
             }
 
-            layout(resultWidth, measuredItems.sumOf { it.totalHeight } + bottomPadding) {
-                var y = 0
+            val resultWidth = max(
+                constraints.minWidth,
+                composedItems.maxOf { it.maxIntrinsicWidth(itemHeight) }
+            )
+
+            val measuredItems = composedItems.map { composed ->
+                Measured(
+                    item = composed.item,
+                    placeables = composed.measurables.map { it.measure(Constraints.fixedWidth(resultWidth)) },
+                )
+            }
+
+            layout(resultWidth, (items.size * itemHeight + bottomPadding).coerceAtLeast(constraints.minHeight)) {
+                var y = itemHeight * startIndex
 
                 measuredItems.forEach { measuredItem ->
-                    state.offsetsIndex[measuredItem.item.node.file] = y
-
                     measuredItem.placeables.forEach { placeable ->
                         placeable.placeRelative(0, y)
                         y += placeable.height
@@ -137,8 +144,8 @@ fun FileTree(
             }
         }
 
-        val showVerticalScroll = verticalScrollState.canScroll
-        val showHorizontalScroll = horizontalScrollState.canScroll
+        val showVerticalScroll by rememberDerived { verticalScrollState.canScroll }
+        val showHorizontalScroll by rememberDerived { horizontalScrollState.canScroll }
 
         if (showVerticalScroll) {
             VerticalScrollbar(
@@ -161,6 +168,10 @@ fun FileTree(
         }
     }
 }
+
+@Composable
+fun <T> rememberDerived(calculation: () -> T) =
+    remember { derivedStateOf(calculation) }
 
 val ScrollState.canScroll: Boolean
     get() = canScrollForward || canScrollBackward

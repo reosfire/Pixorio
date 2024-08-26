@@ -1,10 +1,14 @@
 package ru.reosfire.pixorio
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.material.LocalTextStyle
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.darkColors
 import androidx.compose.material.lightColors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 
 fun appDarkColors() = darkColors(
@@ -41,8 +45,18 @@ fun appLightColors() = lightColors(
 fun MainTheme(content: @Composable () -> Unit) {
     val colors = if (isSystemInDarkTheme()) appDarkColors() else appLightColors()
 
-    MaterialTheme(
-        colors = colors,
-        content = content,
+    val textSelectionColors = TextSelectionColors(
+        handleColor = MaterialTheme.colors.onSurface,
+        backgroundColor = MaterialTheme.colors.surface,
     )
+
+    CompositionLocalProvider(
+        LocalTextSelectionColors provides textSelectionColors,
+        LocalTextStyle provides MaterialTheme.typography.overline,
+    ) {
+        MaterialTheme(
+            colors = colors,
+            content = content,
+        )
+    }
 }

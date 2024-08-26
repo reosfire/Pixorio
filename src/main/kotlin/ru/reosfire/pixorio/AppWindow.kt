@@ -26,12 +26,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
 import androidx.compose.ui.zIndex
-import io.github.vinceglb.filekit.core.FileKit
-import io.github.vinceglb.filekit.core.PickerType
-import io.github.vinceglb.filekit.core.pickFile
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import org.jetbrains.skia.IRect
 import org.jetbrains.skia.Paint
 import org.jetbrains.skia.Rect
@@ -49,8 +44,46 @@ import ru.reosfire.pixorio.ui.components.colorpicker.ColorPicker
 import ru.reosfire.pixorio.ui.components.colorpicker.rememberColorPickerState
 import java.io.File
 import javax.imageio.ImageIO
+import kotlin.coroutines.resume
 import kotlin.math.max
 import kotlin.math.min
+
+class FilePickerState {
+    var shown by mutableStateOf(true)
+
+    private var cachedSaveLocation by mutableStateOf<File?>(null)
+    private var lastContinuation: CancellableContinuation<File>? = null
+
+    suspend fun getSaveLocation(): File {
+        return cachedSaveLocation ?: getSaveFile().also { cachedSaveLocation = it }
+    }
+
+    fun resume(file: File) {
+        lastContinuation?.resume(file)
+        shown = false
+        lastContinuation = null
+    }
+
+    private suspend fun getSaveFile() = suspendCancellableCoroutine { continuation ->
+        cachedSaveLocation = null
+        shown = true
+        lastContinuation = continuation
+
+        continuation.invokeOnCancellation { shown = false }
+    }
+}
+
+@Composable
+fun rememberFilePickerState(): FilePickerState {
+    return remember { FilePickerState() }
+}
+
+@Composable
+fun SaveFilePicker(state: FilePickerState) {
+    if (state.shown) {
+        FilePickerDialog(onCancelled = { state.shown = false }, onSelected = { state.resume(it) })
+    }
+}
 
 @Composable
 fun ApplicationScope.AppWindow(
@@ -61,18 +94,14 @@ fun ApplicationScope.AppWindow(
 
     val editableImage = remember { BasicEditableImage(bitmapSize) }
 
-    var saveLocation by remember { mutableStateOf<File?>(null) }
-
-    var filePickerShown by remember { mutableStateOf(true) }
+    val filePickerState = rememberFilePickerState()
 
     Window(
         onCloseRequest = onCloseRequest,
         title = APP_NAME,
         state = rememberWindowState(WindowPlacement.Maximized),
     ) {
-        if (filePickerShown) {
-            FilePickerDialog(onCloseRequest = { filePickerShown = false })
-        }
+        SaveFilePicker(filePickerState)
 
         MainTheme {
             MenuBar {
@@ -81,20 +110,7 @@ fun ApplicationScope.AppWindow(
                         text = "Save",
                         onClick = {
                             coroutineScope.launch {
-                                val lastSaveLocation = saveLocation
-                                if (lastSaveLocation == null) {
-                                    filePickerShown = true
-
-                                    val fileChosen = FileKit.pickFile(
-                                        type = PickerType.Image,
-                                        title = APP_NAME,
-                                    )?.file ?: return@launch
-
-                                    saveLocation = fileChosen
-                                    save(editableImage, fileChosen)
-                                } else {
-                                    save(editableImage, lastSaveLocation)
-                                }
+                                save(editableImage, filePickerState.getSaveLocation())
                             }
                         },
                         shortcut = KeyShortcut(Key.S, ctrl = true)

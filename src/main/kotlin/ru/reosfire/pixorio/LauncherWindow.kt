@@ -29,7 +29,8 @@ fun ApplicationScope.LauncherWindow(
         var opened by remember { mutableStateOf(true) }
         if (opened) {
             FilePickerDialog(
-                onCloseRequest = { opened = false }
+                onCancelled = { opened = false },
+                onSelected = { opened = true },
             )
         }
 

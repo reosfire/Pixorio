@@ -26,8 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.rememberDialogState
 import kotlinx.coroutines.launch
-import ru.reosfire.pixorio.app.ui.components.common.BasicButton
-import ru.reosfire.pixorio.app.ui.components.common.PixelImage
+import ru.reosfire.pixorio.designsystem.componentes.CommonButton
+import ru.reosfire.pixorio.designsystem.componentes.PixelImage
 import ru.reosfire.pixorio.designsystem.theme.MainTheme
 import java.io.File
 
@@ -189,7 +189,7 @@ fun FilePickerDialog(
                 )
 
                 Row(Modifier.fillMaxWidth()) {
-                    BasicButton(
+                    CommonButton(
                         onClick = onCancelled,
                         modifier = Modifier
                             .weight(1f)
@@ -197,7 +197,7 @@ fun FilePickerDialog(
                         Text("Close")
                     }
 
-                    BasicButton(
+                    CommonButton(
                         onClick = {
                             val resultFile = selectedFile
                             if (resultFile == null) {

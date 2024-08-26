@@ -1,4 +1,4 @@
-package ru.reosfire.pixorio.app.ui.components.common
+package ru.reosfire.pixorio.designsystem.componentes
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -17,7 +17,7 @@ private const val MIN_HEIGHT = 8
 private const val MIN_WIDTH = 8
 
 @Composable
-fun BasicButton(
+fun CommonButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,

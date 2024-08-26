@@ -30,12 +30,12 @@ fun rememberFileTreeState(): FileTreeState = remember {
     FileTreeState(ScrollState(0))
 }
 
-data class FileTreeItem(
+private data class FileTreeItem(
     val node: FileNode,
     val content: @Composable () -> Unit,
 )
 
-data class Composed<T>(
+private data class Composed<T>(
     val item: T,
     val measurables: List<Measurable>,
 ) {
@@ -45,7 +45,7 @@ data class Composed<T>(
     }
 }
 
-data class Measured<T>(
+private data class Measured<T>(
     val item: T,
     val placeables: List<Placeable>,
 ) {

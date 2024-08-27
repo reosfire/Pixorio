@@ -51,6 +51,13 @@ fun FileNodeView(
             onClick = onClick,
             modifier = modifier,
         )
+    } else {
+        FileView(
+            name = name,
+            isSelected = isSelected,
+            onClick = onClick,
+            modifier = modifier,
+        )
     }
 }
 

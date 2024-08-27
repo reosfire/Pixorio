@@ -3,12 +3,25 @@ package ru.reosfire.pixorio.app.filepicker
 import androidx.compose.runtime.*
 import kotlinx.coroutines.*
 import java.io.File
+import java.io.FileFilter
 import java.nio.file.Path
+
+class FileRoot(
+    val filesFilter: FileFilter = FileFilter { true },
+    rootFiles: Array<File> = File.listRoots(),
+) {
+    val nodes = rootFiles.map { FileNode(file = it, root = this) }
+
+    suspend fun tryOpenPath(file: File) {
+        nodes.forEach { it.tryOpenPath(file) }
+    }
+}
 
 data class FileNode(
     val file: File,
     val openedState: MutableState<Boolean> = mutableStateOf(false),
     val children: MutableList<FileNode> = mutableStateListOf(),
+    private val root: FileRoot,
 ) {
     var opened by openedState
 
@@ -63,8 +76,8 @@ data class FileNode(
 
     private suspend fun updateChildren() {
         withContext(Dispatchers.IO) {
-            file.listFiles()?.let { innerFiles ->
-                children.addAll(innerFiles.filter { !it.isHidden }.map { file -> FileNode(file) })
+            file.listFiles(root.filesFilter)?.let { innerFiles ->
+                children.addAll(innerFiles.map { file -> FileNode(file = file, root = root) })
             }
         }
     }

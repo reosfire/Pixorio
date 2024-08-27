@@ -16,7 +16,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 @Stable
-data class FileTreeState(
+class FileTreeState(
     val scrollState: ScrollState,
     val offsetsIndex: MutableMap<File, Int> = mutableMapOf(),
 ) {
@@ -56,7 +56,7 @@ private data class Measured<T>(
 fun FileTree(
     state: FileTreeState,
     selectedFileState: MutableState<File?>,
-    rootNodes: List<FileNode>,
+    fileRoot: FileRoot,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -103,7 +103,7 @@ fun FileTree(
                 .verticalScroll(state.scrollState)
         ) { constraints ->
             val items = mutableListOf<FileTreeItem>()
-            rootNodes.forEach { inflate(it, result = items) }
+            fileRoot.nodes.forEach { inflate(it, result = items) }
 
             val itemHeight = subcompose(-1, items.first().content).sumOf { it.measure(Constraints()).height }
 

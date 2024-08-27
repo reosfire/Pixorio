@@ -31,7 +31,7 @@ fun ApplicationScope.LauncherWindow(
         if (opened) {
             FilePickerDialog(
                 onCancelled = { opened = false },
-                onSelected = { opened = true },
+                onSelected = { opened = false; println(it) },
             )
         }
 

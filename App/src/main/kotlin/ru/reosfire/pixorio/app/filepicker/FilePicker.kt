@@ -97,11 +97,11 @@ fun FilePickerDialog(
     onSelected: (File) -> Unit,
     title: String = "Untitled",
 ) {
-    val rootFiles = File.listRoots()
-
     val selectedFileState = remember { mutableStateOf<File?>(null) }
     var selectedFile by selectedFileState
-    val rootNodes = remember { rootFiles.map { FileNode(it) } }
+    val fileRoot = remember {
+        FileRoot(filesFilter = { !it.isHidden && it.isDirectory })
+    }
 
     val fileTreeState = rememberFileTreeState()
     val coroutineScope = rememberCoroutineScope()
@@ -109,10 +109,10 @@ fun FilePickerDialog(
     fun update() {
         coroutineScope.launch {
             selectedFile?.let { selectedFile ->
-                rootNodes.forEach { it.tryOpenPath(selectedFile) }
-            }
+                fileRoot.tryOpenPath(selectedFile)
 
-            selectedFile?.let { fileTreeState.scrollToItem(it) }
+                fileTreeState.scrollToItem(selectedFile)
+            }
         }
     }
 
@@ -182,7 +182,7 @@ fun FilePickerDialog(
                 FileTree(
                     state = fileTreeState,
                     selectedFileState = selectedFileState,
-                    rootNodes = rootNodes,
+                    fileRoot = fileRoot,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
@@ -203,7 +203,7 @@ fun FilePickerDialog(
                             if (resultFile == null) {
                                 onCancelled()
                             } else {
-                                onSelected(resultFile)
+                                onSelected(File("$resultFile${File.separator}$fileName.${extensionState.value.payload}"))
                             }
                         },
                         contentPadding = PaddingValues(4.dp),

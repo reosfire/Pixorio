@@ -51,7 +51,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 class FilePickerState {
-    var shown by mutableStateOf(true)
+    var shown by mutableStateOf(false)
 
     private var cachedSaveLocation by mutableStateOf<File?>(null)
     private var lastContinuation: CancellableContinuation<File>? = null

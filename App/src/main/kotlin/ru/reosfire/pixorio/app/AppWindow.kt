@@ -56,8 +56,8 @@ class FilePickerState {
     private var cachedSaveLocation by mutableStateOf<File?>(null)
     private var lastContinuation: CancellableContinuation<File>? = null
 
-    suspend fun getSaveLocation(): File {
-        return cachedSaveLocation ?: getSaveFile().also { cachedSaveLocation = it }
+    suspend fun getSaveFile(): File {
+        return cachedSaveLocation ?: getSaveFileUncached().also { cachedSaveLocation = it }
     }
 
     fun resume(file: File) {
@@ -66,7 +66,7 @@ class FilePickerState {
         lastContinuation = null
     }
 
-    private suspend fun getSaveFile() = suspendCancellableCoroutine { continuation ->
+    private suspend fun getSaveFileUncached() = suspendCancellableCoroutine { continuation ->
         cachedSaveLocation = null
         shown = true
         lastContinuation = continuation
@@ -111,8 +111,8 @@ fun ApplicationScope.AppWindow(
                     Item(
                         text = "Save",
                         onClick = {
-                            coroutineScope.launch {
-                                save(editableImage, filePickerState.getSaveLocation())
+                            coroutineScope.launch(Dispatchers.IO) {
+                                save(editableImage, filePickerState.getSaveFile())
                             }
                         },
                         shortcut = KeyShortcut(Key.S, ctrl = true)
@@ -126,14 +126,16 @@ fun ApplicationScope.AppWindow(
 }
 
 suspend fun save(editableImage: EditableImage, file: File) {
+    assert(!file.isFile) { "File must be just file not a directory or something else" }
+
     val bufferedImage = editableImage.toBufferedImage()
 
     val writerFormatNames = ImageIO.getWriterFormatNames()
     val extension = file.extension.takeUnless { it !in writerFormatNames } ?: "png" // empty extension is also checked here
 
-    val extendedFile = File(file.path + "." + extension)
+    val extendedFile = File("${file.parent}${File.separator}${file.nameWithoutExtension}.$extension")
     withContext(Dispatchers.IO) {
-        ImageIO.write(bufferedImage, extension, file)
+        ImageIO.write(bufferedImage, extension, extendedFile)
     }
 }
 
@@ -150,6 +152,13 @@ class EditorContext(
     }
 }
 
+private class TriggerState {
+    private var state by mutableIntStateOf(0)
+
+    fun pull() = state++
+    fun subscribe() = state
+}
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun PixelsPainter(
@@ -159,7 +168,7 @@ private fun PixelsPainter(
 
     val editorContext = remember { EditorContext(editableImage) }
 
-    var framesRendered by remember { mutableIntStateOf(0) }
+    val redrawTrigger = remember { TriggerState() }
 
     val colorPickerState = rememberColorPickerState(Color.White)
     val currentColor by colorPickerState.colorState
@@ -228,7 +237,7 @@ private fun PixelsPainter(
             transactionsQueue.add(it)
             redoQueue.clear()
 
-            framesRendered++
+            redrawTrigger.pull()
             if (currentColor !in usedColors) usedColors.add(currentColor)
         }
     }
@@ -238,7 +247,7 @@ private fun PixelsPainter(
             updateImage()
 
             it.preview(previewEditableImage)
-            framesRendered++
+            redrawTrigger.pull()
         }
     }
 
@@ -256,7 +265,7 @@ private fun PixelsPainter(
 
                         redoQueue.add(lastTransaction)
 
-                        framesRendered++
+                        redrawTrigger.pull()
                         return@onKeyEvent true
                     }
                 }
@@ -269,7 +278,7 @@ private fun PixelsPainter(
 
                         transactionsQueue.add(lastTransaction)
 
-                        framesRendered++
+                        redrawTrigger.pull()
                         return@onKeyEvent true
                     }
                 }
@@ -359,7 +368,7 @@ private fun PixelsPainter(
                         x = editorContext.offset.x - dSize.width * relativeScrollPointCoords.x,
                         y = editorContext.offset.y - dSize.height * relativeScrollPointCoords.y,
                     )
-                    framesRendered++
+                    redrawTrigger.pull()
                     focusRequester.requestFocus()
                 }.onPointerEvent(PointerEventType.Press) {
                     if (it.button == PointerButton.Tertiary) {
@@ -385,7 +394,7 @@ private fun PixelsPainter(
                     )
 
                     onDrawBehind {
-                        framesRendered // TODO: ...
+                        redrawTrigger.subscribe()
 
                         drawRect(
                             color = borderColor,

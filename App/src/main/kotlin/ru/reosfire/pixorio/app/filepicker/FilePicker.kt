@@ -8,14 +8,11 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.DropdownMenu
-import androidx.compose.material.DropdownMenuState
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.loadImageBitmap
@@ -26,70 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.rememberDialogState
 import kotlinx.coroutines.launch
-import ru.reosfire.pixorio.designsystem.componentes.CommonButton
-import ru.reosfire.pixorio.designsystem.componentes.PixelImage
+import ru.reosfire.pixorio.designsystem.componentes.*
 import ru.reosfire.pixorio.designsystem.theme.MainTheme
 import java.io.File
-
-data class SelectorOption<T>(
-    val title: String,
-    val payload: T,
-)
-
-@Composable
-fun <T> SelectorOptionView(
-    option: SelectorOption<T>,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Text(
-        text = option.title,
-        modifier = modifier
-            .clip(RoundedCornerShape(4.dp))
-            .clickable(onClick = onClick)
-            .then(if (isSelected) Modifier.background(MaterialTheme.colors.surface) else Modifier)
-            .padding(horizontal = 4.dp)
-    )
-}
-
-@Composable
-fun <T> DropdownSelector(
-    options: List<SelectorOption<T>>,
-    state: MutableState<SelectorOption<T>>,
-) {
-    var currentOption by state
-
-    val dropdownState = remember { DropdownMenuState(initialStatus = DropdownMenuState.Status.Closed) }
-
-    Column {
-        Text(
-            text = currentOption.title,
-            color = MaterialTheme.colors.onBackground,
-            modifier = Modifier
-                .clickable { dropdownState.status = DropdownMenuState.Status.Open(Offset.Zero) }
-        )
-
-        Box(modifier = Modifier) {
-            DropdownMenu(
-                dropdownState,
-                modifier = Modifier.padding(horizontal = 8.dp),
-            ) {
-                for (option in options) {
-                    SelectorOptionView(
-                        option = option,
-                        isSelected = option === currentOption,
-                        onClick = {
-                            dropdownState.status = DropdownMenuState.Status.Closed
-                            currentOption = option
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 fun FilePickerDialog(
@@ -117,11 +53,11 @@ fun FilePickerDialog(
     }
 
     var fileName by remember { mutableStateOf("untitled") }
-    val extensionsSelectorOptions = listOf(
+    val extensionSelectorOptions = listOf(
         SelectorOption("PNG", "png"),
         SelectorOption("JPG", "jpg"),
     )
-    val extensionState = remember { mutableStateOf(extensionsSelectorOptions.first()) }
+    val extensionSelectorState = rememberDropdownSelectorState(extensionSelectorOptions)
 
     DialogWindow(
         state = rememberDialogState(size = DpSize(800.dp, 600.dp)),
@@ -154,10 +90,7 @@ fun FilePickerDialog(
                             .padding(horizontal = 4.dp, vertical = 4.dp)
                     )
 
-                    DropdownSelector(
-                        options = extensionsSelectorOptions,
-                        state = extensionState,
-                    )
+                    DropdownSelector(extensionSelectorState)
                 }
 
                 SpecialLocations(
@@ -203,7 +136,7 @@ fun FilePickerDialog(
                             if (resultFile == null) {
                                 onCancelled()
                             } else {
-                                onSelected(File("$resultFile${File.separator}$fileName.${extensionState.value.payload}"))
+                                onSelected(File("$resultFile${File.separator}$fileName.${extensionSelectorState.selectedOption.payload}"))
                             }
                         },
                         contentPadding = PaddingValues(4.dp),

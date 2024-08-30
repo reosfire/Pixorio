@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.IntSize
 import org.intellij.lang.annotations.Language
 import ru.reosfire.pixorio.app.draggable
 import ru.reosfire.pixorio.app.extensions.compose.contrastColor
+import ru.reosfire.pixorio.app.extensions.compose.rememberDerived
 import ru.reosfire.pixorio.app.shaders.CachedShaderBrush
 import kotlin.math.min
 
@@ -20,7 +21,7 @@ fun SaturationValueSelector(
     saturationState: MutableFloatState,
     valueState: MutableFloatState
 ) {
-    val pointerPosition = remember { derivedStateOf { Offset(saturationState.value, 1 - valueState.value) } }
+    val pointerPosition by rememberDerived { Offset(saturationState.value, 1 - valueState.value) }
 
     fun updateSaturationValue(position: Offset, size: IntSize) {
         saturationState.value = (position.x / size.width).coerceIn(0f, 1f)
@@ -46,7 +47,7 @@ fun SaturationValueSelector(
 
                 onDrawBehind {
                     drawRect(svSpaceShaderBrush)
-                    drawCircle(circleColor, 4f, Offset(pointerPosition.value.x * size.width, pointerPosition.value.y * size.height))
+                    drawCircle(circleColor, 4f, Offset(pointerPosition.x * size.width, pointerPosition.y * size.height))
                 }
             },
         measurePolicy = {_, constraints ->

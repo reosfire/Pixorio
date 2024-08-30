@@ -6,7 +6,8 @@ import java.io.File
 import java.io.FileFilter
 import java.nio.file.Path
 
-class FileRoot(
+@Stable
+class FileTreeModel(
     val filesFilter: FileFilter = FileFilter { true },
     rootFiles: Array<File> = File.listRoots(),
 ) {
@@ -17,11 +18,13 @@ class FileRoot(
     }
 }
 
+@Stable
 data class FileNode(
     val file: File,
+    val depth: Int = 0,
     val openedState: MutableState<Boolean> = mutableStateOf(false),
     val children: MutableList<FileNode> = mutableStateListOf(),
-    private val root: FileRoot,
+    private val root: FileTreeModel,
 ) {
     var opened by openedState
 
@@ -77,7 +80,7 @@ data class FileNode(
     private suspend fun updateChildren() {
         withContext(Dispatchers.IO) {
             file.listFiles(root.filesFilter)?.let { innerFiles ->
-                children.addAll(innerFiles.map { file -> FileNode(file = file, root = root) })
+                children.addAll(innerFiles.map { file -> FileNode(file = file, depth = depth + 1, root = root) })
             }
         }
     }

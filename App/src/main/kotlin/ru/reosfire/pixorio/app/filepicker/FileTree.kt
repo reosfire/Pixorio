@@ -9,8 +9,10 @@ import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import ru.reosfire.pixorio.app.extensions.compose.rememberDerived
 import java.io.File
 import kotlin.math.max
 import kotlin.math.min
@@ -19,9 +21,10 @@ import kotlin.math.min
 data class FileTreeState(
     val scrollState: ScrollState,
     val offsetsIndex: MutableMap<File, Int> = mutableMapOf(),
+    var itemHeight: Int = 0,
 ) {
     suspend fun scrollToItem(file: File) {
-        offsetsIndex[file]?.let { offset -> scrollState.animateScrollTo(offset) }
+        offsetsIndex[file]?.let { offset -> scrollState.animateScrollTo(offset * itemHeight) }
     }
 }
 
@@ -30,33 +33,11 @@ fun rememberFileTreeState(): FileTreeState = remember {
     FileTreeState(ScrollState(0))
 }
 
-private data class FileTreeItem(
-    val node: FileNode,
-    val content: @Composable () -> Unit,
-)
-
-private data class Composed<T>(
-    val item: T,
-    val measurables: List<Measurable>,
-) {
-    fun maxIntrinsicWidth(height: Int): Int {
-        return if (measurables.isEmpty()) 0
-        else measurables.maxOf { it.maxIntrinsicWidth(height) }
-    }
-}
-
-private data class Measured<T>(
-    val item: T,
-    val placeables: List<Placeable>,
-) {
-    val totalHeight = placeables.sumOf { it.height }
-}
-
 @Composable
 fun FileTree(
+    model: FileTreeModel,
     state: FileTreeState,
     selectedFileState: MutableState<File?>,
-    fileRoot: FileRoot,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -64,7 +45,6 @@ fun FileTree(
 
     fun inflate(
         node: FileNode,
-        depth: Int = 0,
         result: MutableList<FileTreeItem>
     ) {
         result += FileTreeItem(node) {
@@ -77,20 +57,20 @@ fun FileTree(
                     }
                     selectedFile = node.file
                 },
-                modifier = Modifier
-                    .padding(start = (16 * depth).dp)
             )
         }
 
-        node.children.forEachIndexed { i, child ->
-            inflate(child, depth + 1, result)
+        node.children.forEach { child ->
+            inflate(child, result)
         }
     }
 
-    val items by remember(fileRoot) {
+    val items by remember(model) {
         derivedStateOf {
             mutableListOf<FileTreeItem>().also { container ->
-                fileRoot.nodes.forEach { inflate(it, result = container) }
+                model.nodes.forEach { inflate(it, result = container) }
+
+                container.forEachIndexed { i, item -> state.offsetsIndex[item.node.file] = i }
             }
         }
     }
@@ -111,8 +91,7 @@ fun FileTree(
                 .verticalScroll(state.scrollState)
         ) { constraints ->
             val itemHeight = subcompose(-1, items.first().content).sumOf { it.measure(Constraints()).height }
-
-            items.forEachIndexed { i, item -> state.offsetsIndex[item.node.file] = i * itemHeight }
+            state.itemHeight = itemHeight
 
             val startIndex = verticalScrollState.value / itemHeight
             val endIndex = min(items.size, startIndex + constraints.minHeight / itemHeight + 2)
@@ -133,16 +112,16 @@ fun FileTree(
             val measuredItems = composedItems.map { composed ->
                 Measured(
                     item = composed.item,
-                    placeables = composed.measurables.map { it.measure(Constraints.fixedWidth(resultWidth)) },
+                    placeables = composed.measure(Constraints.fixedWidth(resultWidth)),
                 )
             }
 
-            layout(resultWidth, (items.size * itemHeight + bottomPadding).coerceAtLeast(constraints.minHeight)) {
+            layout(resultWidth, constraints.constrainHeight(items.size * itemHeight + bottomPadding)) {
                 var y = itemHeight * startIndex
 
                 measuredItems.forEach { measuredItem ->
                     measuredItem.placeables.forEach { placeable ->
-                        placeable.placeRelative(0, y)
+                        placeable.placeRelative(measuredItem.item.node.depth * 16, y)
                         y += placeable.height
                     }
                 }
@@ -174,12 +153,29 @@ fun FileTree(
     }
 }
 
-@Composable
-fun <T> rememberDerived(calculation: () -> T) =
-    remember { derivedStateOf(calculation) }
+private data class FileTreeItem(
+    val node: FileNode,
+    val content: @Composable () -> Unit,
+)
 
-val ScrollState.canScroll: Boolean
+private data class Composed<T>(
+    val item: T,
+    val measurables: List<Measurable>,
+) {
+    fun maxIntrinsicWidth(height: Int): Int {
+        return if (measurables.isEmpty()) 0
+        else measurables.maxOf { it.maxIntrinsicWidth(height) }
+    }
+
+    fun measure(constraints: Constraints) = measurables.map { it.measure(constraints) }
+}
+
+private data class Measured<T>(
+    val item: T,
+    val placeables: List<Placeable>,
+)
+
+private inline val ScrollState.canScroll: Boolean
     get() = canScrollForward || canScrollBackward
-
 
 private const val SCROLL_BAR_THICKNESS = 12

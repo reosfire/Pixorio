@@ -3,7 +3,10 @@ package ru.reosfire.pixorio.app
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.*
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Text
+import androidx.compose.material.TextField
+import androidx.compose.material.TextFieldDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,7 +18,8 @@ import androidx.compose.ui.window.ApplicationScope
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.rememberWindowState
-import ru.reosfire.pixorio.app.filepicker.FilePickerDialog
+import ru.reosfire.pixorio.app.extensions.compose.rememberDerived
+import ru.reosfire.pixorio.designsystem.componentes.CommonButton
 import ru.reosfire.pixorio.designsystem.theme.MainTheme
 
 @Composable
@@ -27,60 +31,58 @@ fun ApplicationScope.LauncherWindow(
         onCloseRequest = ::exitApplication,
         title = APP_NAME,
     ) {
-        var opened by remember { mutableStateOf(true) }
-        if (opened) {
-            FilePickerDialog(
-                onCancelled = { opened = false },
-                onSelected = { opened = false; println(it) },
-            )
-        }
-
         val widthState = remember { SizeComponentInputFieldState(64) }
         val heightState = remember { SizeComponentInputFieldState(64) }
 
-        val size by remember {
-            derivedStateOf { IntSize(widthState.value, heightState.value) }
-        }
-
-        val correct by remember {
-            derivedStateOf { widthState.isCorrect && heightState.isCorrect }
-        }
+        val correct by rememberDerived { widthState.isCorrect && heightState.isCorrect }
 
         MainTheme {
             Box(Modifier.fillMaxSize().background(MaterialTheme.colors.background)) {
                 Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
                         .align(Alignment.Center)
                         .clip(RoundedCornerShape(4.dp))
                         .background(MaterialTheme.colors.surface)
                         .padding(8.dp)
-                        .requiredWidth(IntrinsicSize.Max)
+                        .requiredWidth(IntrinsicSize.Min)
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min)
                     ) {
-                        Text("Width: ", color = MaterialTheme.colors.onSurface)
-                        SizeTextField(
-                            state = widthState,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                        Column(
+                            verticalArrangement = Arrangement.SpaceAround,
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(IntrinsicSize.Min)
+                        ) {
+                            Text("Width: ", color = MaterialTheme.colors.onSurface)
+                            Text("Height: ", color = MaterialTheme.colors.onSurface)
+                        }
+                        Column(
+                            verticalArrangement = Arrangement.SpaceAround,
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(IntrinsicSize.Min)
+                        ) {
+                            SizeTextField(
+                                state = widthState,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            SizeTextField(
+                                state = heightState,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     }
-                    Spacer(Modifier.height(8.dp).fillMaxWidth())
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier,
-                    ) {
-                        Text("Height: ", color = MaterialTheme.colors.onSurface)
-                        SizeTextField(
-                            state = heightState,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    Button(
+
+                    CommonButton(
                         onClick = {
                             if (correct) {
-                                onContinue(size)
+                                onContinue(IntSize(widthState.value, heightState.value))
                             }
                         },
                         enabled = correct,

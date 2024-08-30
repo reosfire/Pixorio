@@ -1,20 +1,21 @@
 package ru.reosfire.pixorio.designsystem.componentes
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import ru.reosfire.pixorio.designsystem.modifiers.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuState
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.res.loadImageBitmap
+import androidx.compose.ui.res.useResource
 import androidx.compose.ui.unit.dp
 
 data class SelectorOption<T>(
@@ -41,20 +42,34 @@ fun <T> rememberDropdownSelectorState(
 @Composable
 fun <T> DropdownSelector(
     state: DropdownSelectorState<T>,
+    modifier: Modifier = Modifier,
 ) {
     var selectedOption by state.selectedOptionState
 
     val dropdownState = remember { DropdownMenuState(initialStatus = DropdownMenuState.Status.Closed) }
 
     Column {
-        Text(
-            text = selectedOption.title,
-            color = MaterialTheme.colors.onBackground,
-            modifier = Modifier
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = modifier
+                .clip(RoundedCornerShape(4.dp))
                 .clickable { dropdownState.status = DropdownMenuState.Status.Open(Offset.Zero) }
-        )
+                .padding(horizontal = 4.dp)
+        ) {
+            Text(
+                text = selectedOption.title,
+                color = MaterialTheme.colors.onBackground,
+            )
 
-        Box(modifier = Modifier) {
+            PixelImage(
+                bitmap = DOWN_ARROW_BITMAP,
+                colorFilter = ColorFilter.tint(MaterialTheme.colors.onBackground),
+                modifier = Modifier.size(8.dp),
+            )
+        }
+
+        Box {
             DropdownMenu(
                 dropdownState,
                 modifier = Modifier.padding(horizontal = 8.dp),
@@ -91,3 +106,5 @@ private fun <T> SelectorOptionView(
             .padding(horizontal = 4.dp)
     )
 }
+
+private val DOWN_ARROW_BITMAP = useResource("icons/down_arrow.png") { loadImageBitmap(it) }

@@ -3,7 +3,6 @@ package ru.reosfire.pixorio.app.ui.components.brushes.palette
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,6 +19,7 @@ import androidx.compose.ui.res.useResource
 import androidx.compose.ui.unit.dp
 import ru.reosfire.pixorio.app.brushes.AbstractBrush
 import ru.reosfire.pixorio.designsystem.componentes.PixelImage
+import ru.reosfire.pixorio.designsystem.modifiers.clickable
 
 data class BrushUiData(
     val name: String,

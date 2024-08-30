@@ -1,20 +1,24 @@
 package ru.reosfire.pixorio.designsystem.componentes
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.unit.dp
-
-private const val MIN_HEIGHT = 8
-private const val MIN_WIDTH = 8
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 
 @Composable
 fun CommonButton(
@@ -22,23 +26,37 @@ fun CommonButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
-    elevation: ButtonElevation? = ButtonDefaults.elevation(),
     shape: Shape = MaterialTheme.shapes.small,
-    border: BorderStroke? = null,
     colors: ButtonColors = ButtonDefaults.buttonColors(),
-    contentPadding: PaddingValues = PaddingValues(4.dp),
+    contentPadding: PaddingValues = PaddingValues(),
     content: @Composable RowScope.() -> Unit
 ) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.heightIn(min = MIN_HEIGHT.dp).widthIn(min = MIN_WIDTH.dp),
-        enabled = enabled,
-        interactionSource = interactionSource,
-        elevation = elevation,
-        shape = shape,
-        border = border,
-        colors = colors,
-        contentPadding = contentPadding,
-        content = content,
-    )
+    val contentColor by colors.contentColor(enabled)
+
+    CompositionLocalProvider(
+        LocalContentColor provides contentColor,
+        LocalContentAlpha provides contentColor.alpha,
+    ) {
+        Box(
+            modifier = modifier
+                .pointerHoverIcon(PointerIcon.Hand)
+                .semantics { role = Role.Button }
+                .clip(shape)
+                .background(color = colors.backgroundColor(enabled).value)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = rememberRipple(),
+                    enabled = enabled,
+                    onClick = onClick
+                ),
+            propagateMinConstraints = true
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(contentPadding),
+                content = content,
+            )
+        }
+    }
 }

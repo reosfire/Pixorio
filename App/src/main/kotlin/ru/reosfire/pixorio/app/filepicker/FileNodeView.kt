@@ -1,7 +1,8 @@
 package ru.reosfire.pixorio.app.filepicker
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import ru.reosfire.pixorio.designsystem.modifiers.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -21,8 +22,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.reosfire.pixorio.designsystem.componentes.PixelImage
 
-private val DOWN_ARROW_BITMAP = useResource("icons/filepicker/down_arrow.png") { loadImageBitmap(it) }
+private val DOWN_ARROW_BITMAP = useResource("icons/down_arrow.png") { loadImageBitmap(it) }
 private val RIGHT_ARROW_BITMAP = useResource("icons/filepicker/right_arrow.png") { loadImageBitmap(it) }
+
+private val FILE_BITMAP = useResource("icons/filepicker/file.png") { loadImageBitmap(it) }
+private val FOLDER_BITMAP = useResource("icons/filepicker/folder.png") { loadImageBitmap(it) }
 
 @Composable
 fun FileNodeView(
@@ -73,6 +77,7 @@ private fun DirectoryView(
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start),
         modifier = modifier
             .clip(RoundedCornerShape(2.dp))
             .then(if (isSelected) Modifier.background(MaterialTheme.colors.surface) else Modifier)
@@ -83,8 +88,12 @@ private fun DirectoryView(
             bitmap = if (opened.value) DOWN_ARROW_BITMAP else RIGHT_ARROW_BITMAP,
             colorFilter = ColorFilter.tint(contentColor),
             modifier = Modifier
-                .padding(end = 4.dp)
                 .size(8.dp)
+        )
+        PixelImage(
+            bitmap = FOLDER_BITMAP,
+            colorFilter = ColorFilter.tint(contentColor),
+            modifier = Modifier.size(16.dp),
         )
         Text(
             text = name,
@@ -115,6 +124,11 @@ private fun FileView(
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp)
     ) {
+        PixelImage(
+            bitmap = FILE_BITMAP,
+            colorFilter = ColorFilter.tint(contentColor),
+            modifier = Modifier.size(16.dp),
+        )
         Text(
             text = name,
             color = contentColor,

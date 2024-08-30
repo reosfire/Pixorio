@@ -1,19 +1,12 @@
 package ru.reosfire.pixorio.app.filepicker
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.res.loadImageBitmap
-import androidx.compose.ui.res.useResource
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindow
@@ -31,17 +24,17 @@ fun FilePickerDialog(
 ) {
     val selectedFileState = remember { mutableStateOf<File?>(null) }
     var selectedFile by selectedFileState
-    val fileRoot = remember {
-        FileRoot(filesFilter = { !it.isHidden && it.isDirectory })
+    val fileTreeModel = remember {
+        FileTreeModel(filesFilter = { !it.isHidden && it.isDirectory })
     }
 
     val fileTreeState = rememberFileTreeState()
     val coroutineScope = rememberCoroutineScope()
 
-    fun update() {
+    fun updateTree() {
         coroutineScope.launch {
             selectedFile?.let { selectedFile ->
-                fileRoot.tryOpenPath(selectedFile)
+                fileTreeModel.tryOpenPath(selectedFile)
 
                 fileTreeState.scrollToItem(selectedFile)
             }
@@ -67,7 +60,10 @@ fun FilePickerDialog(
                     .background(MaterialTheme.colors.background)
                     .padding(8.dp)
             ) {
-                Row(Modifier.fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)
+                ) {
                     CommonTextField(
                         value = fileName,
                         onValueChange = {
@@ -75,19 +71,20 @@ fun FilePickerDialog(
                         },
                         singleLine = true,
                         modifier = Modifier
+                            .fillMaxHeight()
                             .padding(end = 8.dp)
                             .weight(1f)
                     )
 
-                    DropdownSelector(extensionSelectorState)
+                    DropdownSelector(extensionSelectorState, Modifier.fillMaxHeight())
                 }
 
                 SpecialLocations(
-                    locations = specialLocations,
+                    locations = SPECIAL_LOCATIONS,
                     selectedFileState = selectedFileState,
                     onSelected = {
                         selectedFile = it
-                        update()
+                        updateTree()
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -96,15 +93,15 @@ fun FilePickerDialog(
                     state = selectedFileState,
                     onSelected = {
                         selectedFile = it
-                        update()
+                        updateTree()
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
 
                 FileTree(
+                    model = fileTreeModel,
                     state = fileTreeState,
                     selectedFileState = selectedFileState,
-                    fileRoot = fileRoot,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
@@ -128,7 +125,6 @@ fun FilePickerDialog(
                                 onSelected(File("$resultFile${File.separator}$fileName.${extensionSelectorState.selectedOption.payload}"))
                             }
                         },
-                        contentPadding = PaddingValues(4.dp),
                         modifier = Modifier
                             .weight(1f)
                     ) {
@@ -139,41 +135,3 @@ fun FilePickerDialog(
         }
     }
 }
-
-data class SpecialLocationUIData(
-    val file: File,
-    val icon: ImageBitmap,
-    val id: Int,
-)
-
-@Composable
-fun SpecialLocations(
-    locations: List<SpecialLocationUIData>,
-    selectedFileState: State<File?>,
-    onSelected: (File) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    remember {  }
-    LazyRow(modifier = modifier) {
-        items(locations, key = { it.id }) {
-            PixelImage(
-                bitmap = it.icon,
-                modifier = Modifier
-                    .padding(4.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .clickable {
-                        onSelected(it.file)
-                    }
-                    .then(if (it.file == selectedFileState.value) Modifier.background(MaterialTheme.colors.surface) else Modifier)
-                    .padding(4.dp)
-                    .size(16.dp)
-            )
-        }
-    }
-}
-
-private val DESKTOP_BITMAP = useResource("icons/filepicker/desktop.png") { loadImageBitmap(it) }
-
-val specialLocations = listOf(
-    SpecialLocationUIData(File(System.getProperty("user.home")), DESKTOP_BITMAP, 0),
-)

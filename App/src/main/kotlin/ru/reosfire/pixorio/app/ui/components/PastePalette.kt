@@ -2,7 +2,7 @@ package ru.reosfire.pixorio.app.ui.components
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import ru.reosfire.pixorio.designsystem.modifiers.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size

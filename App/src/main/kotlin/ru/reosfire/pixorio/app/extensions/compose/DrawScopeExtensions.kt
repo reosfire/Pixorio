@@ -1,4 +1,4 @@
-package ru.reosfire.pixorio.extensions.compose
+package ru.reosfire.pixorio.app.extensions.compose
 
 import androidx.compose.ui.graphics.NativeCanvas
 import androidx.compose.ui.graphics.drawscope.DrawScope

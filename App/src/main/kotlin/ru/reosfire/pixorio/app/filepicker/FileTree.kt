@@ -57,6 +57,8 @@ fun FileTree(
                     }
                     selectedFile = node.file
                 },
+                modifier = Modifier
+                    .padding(start = (16 * node.depth).dp)
             )
         }
 
@@ -79,13 +81,11 @@ fun FileTree(
         val verticalScrollState = state.scrollState
         val horizontalScrollState = rememberScrollState()
 
-        val endPadding by rememberDerived { if (verticalScrollState.canScroll) SCROLL_BAR_THICKNESS else 0 }
         val bottomPadding by rememberDerived { if (horizontalScrollState.canScroll) SCROLL_BAR_THICKNESS else 0 }
 
         SubcomposeLayout(
             modifier = Modifier
                 .fillMaxSize() // Set min constraints to max possible which will be passed down by scroll modifiers
-                .padding(end = endPadding.dp)
                 .align(Alignment.TopStart)
                 .horizontalScroll(horizontalScrollState)
                 .verticalScroll(state.scrollState)
@@ -121,7 +121,7 @@ fun FileTree(
 
                 measuredItems.forEach { measuredItem ->
                     measuredItem.placeables.forEach { placeable ->
-                        placeable.placeRelative(measuredItem.item.node.depth * 16, y)
+                        placeable.placeRelative(0, y)
                         y += placeable.height
                     }
                 }

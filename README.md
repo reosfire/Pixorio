@@ -24,7 +24,7 @@ Pixorio is a pixel art editor writen in compose multiplatform
 - Export existing image in project or make project based on existing image
 - Autosaving
 
-# Some wierd features
+# Some weird features
 
 - Procedural generation with some scripting language and maybe nodes
 - Version control

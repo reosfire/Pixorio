@@ -23,7 +23,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MSI build
-        path: D:\a\Pixorio\Pixorio\App\build\compose\binaries\main-release\msi\
+        path: App\build\compose\binaries\main-release\msi\
   buildDmg:
     runs-on: macos-latest
     steps:
@@ -44,7 +44,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: DMG build
-        path: /Users/runner/work/Pixorio/Pixorio/App/build/compose/binaries/main-release/dmg/
+        path: App/build/compose/binaries/main-release/dmg/
   buildDeb:
     runs-on: ubuntu-latest
     steps:
@@ -65,5 +65,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: DEB build
-        path: /home/runner/work/Pixorio/Pixorio/App/build/compose/binaries/main-release/deb/
+        path: App/build/compose/binaries/main-release/deb/
 

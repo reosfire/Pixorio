@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -250,175 +251,185 @@ private fun PixelsPainter(
             redrawTrigger.pull()
         }
     }
+    Box() {
+        Row(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colors.background)
+                .onKeyEvent { event ->
+                    if (event.key == Key.Z && event.isCtrlPressed && event.type == KeyEventType.KeyDown) {
+                        if (transactionsQueue.isNotEmpty()) {
+                            val lastTransaction = transactionsQueue.removeLast()
 
-    Row(
-        Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colors.background)
-            .onKeyEvent { event ->
-                if (event.key == Key.Z && event.isCtrlPressed && event.type == KeyEventType.KeyDown) {
-                    if (transactionsQueue.isNotEmpty()) {
-                        val lastTransaction = transactionsQueue.removeLast()
+                            lastTransaction.revert(editableImage)
+                            updateImage()
 
-                        lastTransaction.revert(editableImage)
-                        updateImage()
+                            redoQueue.add(lastTransaction)
 
-                        redoQueue.add(lastTransaction)
-
-                        redrawTrigger.pull()
-                        return@onKeyEvent true
+                            redrawTrigger.pull()
+                            return@onKeyEvent true
+                        }
                     }
-                }
-                if (event.key == Key.Y && event.isCtrlPressed && event.type == KeyEventType.KeyDown) {
-                    if (redoQueue.isNotEmpty()) {
-                        val lastTransaction = redoQueue.removeLast()
+                    if (event.key == Key.Y && event.isCtrlPressed && event.type == KeyEventType.KeyDown) {
+                        if (redoQueue.isNotEmpty()) {
+                            val lastTransaction = redoQueue.removeLast()
 
-                        lastTransaction.apply(editableImage)
-                        updateImage()
+                            lastTransaction.apply(editableImage)
+                            updateImage()
 
-                        transactionsQueue.add(lastTransaction)
+                            transactionsQueue.add(lastTransaction)
 
-                        redrawTrigger.pull()
-                        return@onKeyEvent true
-                    }
-                }
-
-                if (event.key == Key.F && event.type == KeyEventType.KeyDown) {
-                    if (clipStart == null && currentCursorPosition in editableImage.size) {
-                        focusRequester.requestFocus()
-                        clipStart = currentCursorPosition
-                    }
-                }
-
-                if (event.key == Key.F && event.type == KeyEventType.KeyUp) {
-                    if (currentCursorPosition in editableImage.size) {
-                        getClipRect()?.let { clipRect ->
-                            editableImage.makeSnapshot(clipRect)?.let { rectSnapshot ->
-                                clips.add(ImageBrush(rectSnapshot))
-                            }
+                            redrawTrigger.pull()
+                            return@onKeyEvent true
                         }
                     }
 
-                    clipStart = null
+                    if (event.key == Key.F && event.type == KeyEventType.KeyDown) {
+                        if (clipStart == null && currentCursorPosition in editableImage.size) {
+                            focusRequester.requestFocus()
+                            clipStart = currentCursorPosition
+                        }
+                    }
+
+                    if (event.key == Key.F && event.type == KeyEventType.KeyUp) {
+                        if (currentCursorPosition in editableImage.size) {
+                            getClipRect()?.let { clipRect ->
+                                editableImage.makeSnapshot(clipRect)?.let { rectSnapshot ->
+                                    clips.add(ImageBrush(rectSnapshot))
+                                }
+                            }
+                        }
+
+                        clipStart = null
+                    }
+
+                    false
                 }
-
-                false
-            }
-    ) {
-        Column(
-            Modifier
-                .fillMaxHeight()
-                .border(1.dp, Color.White)
-                .background(Color.Gray.copy(alpha = 0.7f))
-                .align(Alignment.Top)
-                .zIndex(2f)
         ) {
-            ColorPicker(
-                state = colorPickerState,
-                modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
-            )
+            Column(
+                Modifier
+                    .fillMaxHeight()
+                    .border(1.dp, Color.White)
+                    .background(Color.Gray.copy(alpha = 0.7f))
+                    .align(Alignment.Top)
+                    .zIndex(2f)
+            ) {
+                ColorPicker(
+                    state = colorPickerState,
+                    modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
+                )
 
-            ColorsPalette(
-                usedColors.sortedBy { it.hsvHue },
-                onColorSelect = { colorPickerState.setColor(it) },
-                modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
-            )
+                ColorsPalette(
+                    usedColors.sortedBy { it.hsvHue },
+                    onColorSelect = { colorPickerState.setColor(it) },
+                    modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
+                )
 
-            BrushesPalette(
-                brushes = brushesList,
-                onBrushSelect = {
-                    currentBrush = it.brush
-                },
-                selectedBrush = currentBrush,
-                modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
-            )
+                BrushesPalette(
+                    brushes = brushesList,
+                    onBrushSelect = {
+                        currentBrush = it.brush
+                    },
+                    selectedBrush = currentBrush,
+                    modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
+                )
 
-            PastePalette(
-                clips,
-                onSelect = { currentBrush = it },
-                selectedBrush = currentBrush,
-                modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
+                PastePalette(
+                    clips,
+                    onSelect = { currentBrush = it },
+                    selectedBrush = currentBrush,
+                    modifier = Modifier.width((255 + 40).dp).height((255).dp).border(1.dp, Color.White),
+                )
+            }
+
+            Spacer(
+                Modifier
+                    .weight(1f)
+                    .align(Alignment.Top)
+                    .fillMaxSize()
+                    .pointerInput(currentBrush) {
+                        with(currentBrush) {
+                            inputEventsHandler(editorContext)
+                        }
+                    }
+                    .onPointerEvent(PointerEventType.Scroll) {
+                        val dScale = it.changes.first().scrollDelta.y * editorContext.scalingFactor * 0.1f
+                        if (editorContext.scalingFactor + dScale !in 0.2f..40f) return@onPointerEvent
+                        val dSize = editableImage.size * dScale
+
+                        val scrollPointInImageCoordinates = (it.changes.first().position - editorContext.offset)
+                        val relativeScrollPointCoords = Offset(
+                            scrollPointInImageCoordinates.x / (editableImage.width * editorContext.scalingFactor),
+                            scrollPointInImageCoordinates.y / (editableImage.height * editorContext.scalingFactor)
+                        )
+
+                        editorContext.scalingFactor += dScale
+
+                        editorContext.offset = Offset(
+                            x = editorContext.offset.x - dSize.width * relativeScrollPointCoords.x,
+                            y = editorContext.offset.y - dSize.height * relativeScrollPointCoords.y,
+                        )
+                        redrawTrigger.pull()
+                        focusRequester.requestFocus()
+                    }.onPointerEvent(PointerEventType.Press) {
+                        if (it.button == PointerButton.Tertiary) {
+                            val click = with(editorContext) { it.changes.first().position.toLocalCoordinates() }.toInt()
+                            if (click !in editableImage.size) return@onPointerEvent
+                            colorPickerState.setColor(editableImage.getComposeColor(click.x, click.y))
+                        }
+                        focusRequester.requestFocus()
+                    }.onPointerEvent(PointerEventType.Move) {
+                        currentCursorPosition =
+                            with(editorContext) { it.changes.first().position.toLocalCoordinates() }.toInt()
+                    }
+                    .focusRequester(focusRequester)
+                    .focusable()
+                    .drawWithCache {
+                        val resultSize = editableImage.size * editorContext.scalingFactor
+                        val offset = editorContext.offset
+
+                        val dstRect = Rect.makeXYWH(offset.x, offset.y, resultSize.width, resultSize.height)
+
+                        checkeredShaderBrush.setUniforms(
+                            squareSize = max(2f, editorContext.scalingFactor / 2),
+                            offset = offset,
+                        )
+
+                        onDrawBehind {
+                            redrawTrigger.subscribe()
+
+                            drawRect(
+                                color = borderColor,
+                                topLeft = Offset(offset.x - BORDER_SIZE, offset.y - BORDER_SIZE),
+                                size = Size(resultSize.width + BORDER_SIZE * 2, resultSize.height + BORDER_SIZE * 2),
+                            )
+
+                            drawRect(
+                                brush = checkeredShaderBrush,
+                                topLeft = offset,
+                                size = resultSize
+                            )
+
+                            previewEditableImage.render(this, dstRect)
+
+                            getClipRect()?.toRect()?.let { clipRect ->
+                                useNativeCanvas {
+                                    translate(offset.x, offset.y)
+                                    scale(editorContext.scalingFactor, editorContext.scalingFactor)
+                                    drawRect(clipRect, selectionPaint)
+                                }
+                            }
+                        }
+                    }
             )
         }
-
-        Spacer(
-            Modifier
-                .weight(1f)
-                .align(Alignment.Top)
-                .fillMaxSize()
-                .pointerInput(currentBrush) {
-                    with(currentBrush) {
-                        inputEventsHandler(editorContext)
-                    }
-                }
-                .onPointerEvent(PointerEventType.Scroll) {
-                    val dScale = it.changes.first().scrollDelta.y * editorContext.scalingFactor * 0.1f
-                    if (editorContext.scalingFactor + dScale !in 0.2f..40f) return@onPointerEvent
-                    val dSize = editableImage.size * dScale
-
-                    val scrollPointInImageCoordinates = (it.changes.first().position - editorContext.offset)
-                    val relativeScrollPointCoords = Offset(
-                        scrollPointInImageCoordinates.x / (editableImage.width * editorContext.scalingFactor),
-                        scrollPointInImageCoordinates.y / (editableImage.height * editorContext.scalingFactor)
-                    )
-
-                    editorContext.scalingFactor += dScale
-
-                    editorContext.offset = Offset(
-                        x = editorContext.offset.x - dSize.width * relativeScrollPointCoords.x,
-                        y = editorContext.offset.y - dSize.height * relativeScrollPointCoords.y,
-                    )
-                    redrawTrigger.pull()
-                    focusRequester.requestFocus()
-                }.onPointerEvent(PointerEventType.Press) {
-                    if (it.button == PointerButton.Tertiary) {
-                        val click = with(editorContext) { it.changes.first().position.toLocalCoordinates() }.toInt()
-                        if (click !in editableImage.size) return@onPointerEvent
-                        colorPickerState.setColor(editableImage.getComposeColor(click.x, click.y))
-                    }
-                    focusRequester.requestFocus()
-                }.onPointerEvent(PointerEventType.Move) {
-                    currentCursorPosition = with(editorContext) { it.changes.first().position.toLocalCoordinates() }.toInt()
-                }
-                .focusRequester(focusRequester)
-                .focusable()
-                .drawWithCache {
-                    val resultSize = editableImage.size * editorContext.scalingFactor
-                    val offset = editorContext.offset
-
-                    val dstRect = Rect.makeXYWH(offset.x, offset.y, resultSize.width, resultSize.height)
-
-                    checkeredShaderBrush.setUniforms(
-                        squareSize = max(2f, editorContext.scalingFactor / 2),
-                        offset = offset,
-                    )
-
-                    onDrawBehind {
-                        redrawTrigger.subscribe()
-
-                        drawRect(
-                            color = borderColor,
-                            topLeft = Offset(offset.x - BORDER_SIZE, offset.y - BORDER_SIZE),
-                            size = Size(resultSize.width + BORDER_SIZE * 2, resultSize.height + BORDER_SIZE * 2),
-                        )
-
-                        drawRect(
-                            brush = checkeredShaderBrush,
-                            topLeft = offset,
-                            size = resultSize
-                        )
-
-                        previewEditableImage.render(this, dstRect)
-
-                        getClipRect()?.toRect()?.let { clipRect ->
-                            useNativeCanvas {
-                                translate(offset.x, offset.y)
-                                scale(editorContext.scalingFactor, editorContext.scalingFactor)
-                                drawRect(clipRect, selectionPaint)
-                            }
-                        }
-                    }
-                }
+        Text(
+            text = "Cursor: $currentCursorPosition",
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .background(Color.DarkGray.copy(alpha = 0.8f))
+                .padding(10.dp),
+            color = Color.White
         )
     }
 }

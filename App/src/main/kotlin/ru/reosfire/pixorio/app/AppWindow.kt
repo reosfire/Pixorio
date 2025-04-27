@@ -35,6 +35,8 @@ import ru.reosfire.pixorio.app.brushes.PaintingTransaction
 import ru.reosfire.pixorio.app.brushes.library.Fill
 import ru.reosfire.pixorio.app.brushes.library.ImageBrush
 import ru.reosfire.pixorio.app.brushes.library.Pencil
+import ru.reosfire.pixorio.app.brushes.library.StraightLine
+import ru.reosfire.pixorio.app.brushes.library.Circle
 import ru.reosfire.pixorio.app.extensions.compose.*
 import ru.reosfire.pixorio.app.filepicker.FilePickerDialog
 import ru.reosfire.pixorio.app.shaders.CheckeredShaderBrush
@@ -185,6 +187,16 @@ private fun PixelsPainter(
                 name = "Fill",
                 iconResource = "icons/brushes/bucket.png",
                 brush = Fill(currentColor)
+            ),
+            BrushUiData(
+                name = "Straight Line",
+                iconResource = "icons/brushes/pencil.png",
+                brush = StraightLine(currentColor)
+            ),
+            BrushUiData(
+                name = "Circle/Ellipse",
+                iconResource = "icons/brushes/pencil.png",
+                brush = Circle(currentColor)
             ),
         )
     }
